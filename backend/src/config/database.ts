@@ -13,7 +13,7 @@ const connectDB = async (): Promise<void> => {
       // Retry writes for better reliability
       retryWrites: true,
       // Write concern for production
-      w: 'majority'
+      w: 'majority' as const
     };
     
     await mongoose.connect(mongoURI, options);
