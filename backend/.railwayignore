@@ -11,3 +11,6 @@ docs/
 .gitignore
 coverage/
 .nyc_output/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
