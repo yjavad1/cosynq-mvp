@@ -13,3 +13,6 @@ docs/
 coverage/
 .nyc_output/
 src/test/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

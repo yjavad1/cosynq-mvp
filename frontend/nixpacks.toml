@@ -1,11 +1,22 @@
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "npm-9_x"]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-cmds = ["npm ci"]
+dependsOn = ["setup"]
+cmds = [
+  "npm install --prefer-offline --no-audit --progress=false --legacy-peer-deps"
+]
 
 [phases.build]
-cmds = ["npm run build"]
+dependsOn = ["install"]
+cmds = [
+  "npm run build"
+]
 
 [start]
 cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_CACHE = "/tmp/.npm"
+NPM_CONFIG_UPDATE_NOTIFIER = "false"
