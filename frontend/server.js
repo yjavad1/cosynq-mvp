@@ -11,7 +11,7 @@ async function startServer() {
     const server = await preview({
       root: path.resolve(__dirname),
       preview: {
-        port: parseInt(process.env.PORT) || 3000,
+        port: parseInt(process.env.PORT) || 8080,
         host: '0.0.0.0',
         strictPort: false,
         cors: true,

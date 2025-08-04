@@ -21,10 +21,17 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 3000,
+    port: parseInt(process.env.PORT || '8080'), // Use Railway's PORT or default to 8080
     host: '0.0.0.0', // Bind to all interfaces
     strictPort: false, // Allow port fallback
     cors: true, // Enable CORS
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'zonal-possibility-production.up.railway.app', // Railway domain
+      '.railway.app', // All Railway subdomains
+      '.up.railway.app', // All Railway production domains
+    ],
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
