@@ -14,9 +14,8 @@ const corsOptions = {
       'http://localhost:3000',
       'https://localhost:3000',
       process.env.FRONTEND_URL,
-      // Add Railway URLs dynamically
-      'https://cosynq-frontend-production.railway.app',
-      'https://frontend-production.railway.app'
+      // Railway frontend domain
+      'https://zonal-possibility-production.up.railway.app'
     ].filter(Boolean); // Remove undefined values
     
     console.log('🔧 Allowed origins:', allowedOrigins);
