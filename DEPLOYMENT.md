@@ -40,7 +40,7 @@ Railway provides an excellent platform for full-stack applications with built-in
    ```bash
    # Railway will auto-detect, but you can override:
    Root Directory: backend
-   Build Command: npm run build
+   Build Command: npm install && npm run build
    Start Command: npm start
    ```
 
@@ -72,8 +72,8 @@ Railway provides an excellent platform for full-stack applications with built-in
 2. **Configure Build Settings**
    ```bash
    Root Directory: frontend
-   Build Command: npm run build
-   Start Command: npm run preview
+   Build Command: npm install && npm run build
+   Start Command: npm start
    ```
 
 3. **Set Environment Variables**

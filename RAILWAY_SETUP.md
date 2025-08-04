@@ -21,7 +21,7 @@ Your project is now configured to deploy backend and frontend as separate Railwa
 2. **Configure Backend Build**
    ```bash
    # Railway should auto-detect from nixpacks.toml, but if needed:
-   Build Command: npm ci && npm run build
+   Build Command: npm install && npm run build
    Start Command: npm start
    ```
 
@@ -60,7 +60,7 @@ Your project is now configured to deploy backend and frontend as separate Railwa
 2. **Configure Frontend Build**
    ```bash
    # Railway should auto-detect from nixpacks.toml, but if needed:
-   Build Command: npm ci && npm run build
+   Build Command: npm install && npm run build
    Start Command: npm start
    ```
 

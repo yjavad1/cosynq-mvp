@@ -28,12 +28,42 @@ app.use(corsMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Debug logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Add a simple test route for debugging Railway deployment
+app.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Direct route test works',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || '8000'
+  });
+});
+
 app.use('/api', routes);
 
+// Add root health check
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Cosynq API Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 app.use('*', (req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: 'Route not found',
+    path: req.originalUrl,
+    method: req.method
   });
 });
 
