@@ -1,0 +1,19 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install --prefer-offline --no-audit --progress=false --legacy-peer-deps && npm run build"
+  },
+  "deploy": {
+    "startCommand": "npm run start:server",
+    "numReplicas": 1,
+    "sleepApplication": false,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "variables": {
+    "NODE_ENV": "production",
+    "NPM_CONFIG_CACHE": "/tmp/.npm",
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+  }
+}

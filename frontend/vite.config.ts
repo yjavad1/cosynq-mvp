@@ -22,7 +22,14 @@ export default defineConfig({
   },
   preview: {
     port: 3000,
-    host: true, // Allow external connections for production preview
+    host: '0.0.0.0', // Bind to all interfaces
+    strictPort: false, // Allow port fallback
+    cors: true, // Enable CORS
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+    },
   },
   build: {
     outDir: 'dist',
