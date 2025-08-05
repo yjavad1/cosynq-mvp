@@ -37,7 +37,7 @@ export interface AuthResponse {
   errors?: string[];
 }
 
-export interface Space {
+export interface LegacySpace {
   id: string;
   name: string;
   description: string;
@@ -193,4 +193,116 @@ export interface ContactStats {
   contactsByState: Array<{ _id: ContextState; count: number }>;
   contactsByPriority: Array<{ _id: string; count: number }>;
   recentInteractions: ContactInteraction[];
+}
+
+// Space Management Types
+export type SpaceType = 'Hot Desk' | 'Meeting Room' | 'Private Office';
+export type SpaceStatus = 'Available' | 'Occupied' | 'Maintenance' | 'Out of Service';
+
+export interface WorkingHours {
+  day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+}
+
+export interface SpaceRates {
+  hourly?: number;
+  daily?: number;
+  weekly?: number;
+  monthly?: number;
+  currency: string;
+}
+
+export interface Space {
+  _id: string;
+  organizationId: string;
+  name: string;
+  description?: string;
+  type: SpaceType;
+  status: SpaceStatus;
+  capacity: number;
+  area?: number;
+  floor?: string;
+  room?: string;
+  rates: SpaceRates;
+  amenities: string[];
+  equipment: string[];
+  workingHours: WorkingHours[];
+  isActive: boolean;
+  minimumBookingDuration: number;
+  maximumBookingDuration: number;
+  advanceBookingLimit: number;
+  allowSameDayBooking: boolean;
+  images?: string[];
+  createdBy: User;
+  updatedBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateSpaceData {
+  name: string;
+  description?: string;
+  type: SpaceType;
+  status?: SpaceStatus;
+  capacity: number;
+  area?: number;
+  floor?: string;
+  room?: string;
+  rates: SpaceRates;
+  amenities?: string[];
+  equipment?: string[];
+  workingHours: WorkingHours[];
+  isActive?: boolean;
+  minimumBookingDuration?: number;
+  maximumBookingDuration?: number;
+  advanceBookingLimit?: number;
+  allowSameDayBooking?: boolean;
+  images?: string[];
+}
+
+export interface SpacesResponse {
+  spaces: Space[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalSpaces: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface SpaceStats {
+  totalSpaces: number;
+  spacesByType: Array<{ _id: SpaceType; count: number }>;
+  spacesByStatus: Array<{ _id: SpaceStatus; count: number }>;
+  totalCapacity: number;
+  averageRates: {
+    avgHourly: number;
+    avgDaily: number;
+  };
+}
+
+export interface SpaceAvailability {
+  space: {
+    _id: string;
+    name: string;
+    type: SpaceType;
+    capacity: number;
+    status: SpaceStatus;
+    rates: SpaceRates;
+  };
+  availability: Array<{
+    date: string;
+    dayOfWeek: string;
+    isAvailable: boolean;
+    workingHours: {
+      isOpen: boolean;
+      openTime?: string;
+      closeTime?: string;
+    } | null;
+    status: SpaceStatus;
+  }>;
 }

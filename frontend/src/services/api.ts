@@ -9,7 +9,12 @@ import {
   ContactsResponse,
   ContactStats,
   ContextState,
-  ApiResponse
+  ApiResponse,
+  Space,
+  CreateSpaceData,
+  SpacesResponse,
+  SpaceStats,
+  SpaceAvailability
 } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -179,6 +184,66 @@ class ApiService {
 
   async getContactStats(): Promise<AxiosResponse<ApiResponse<ContactStats>>> {
     return this.api.get('/contacts/stats');
+  }
+
+  // Space Management Methods
+  async getSpaces(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    type?: string;
+    status?: string;
+    isActive?: boolean;
+    minCapacity?: number;
+    maxCapacity?: number;
+    amenities?: string;
+  }): Promise<AxiosResponse<ApiResponse<SpacesResponse>>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return this.api.get(`/spaces${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getSpace(id: string): Promise<AxiosResponse<ApiResponse<{ space: Space }>>> {
+    return this.api.get(`/spaces/${id}`);
+  }
+
+  async createSpace(spaceData: CreateSpaceData): Promise<AxiosResponse<ApiResponse<{ space: Space }>>> {
+    console.log('Creating space with data:', JSON.stringify(spaceData, null, 2));
+    return this.api.post('/spaces', spaceData);
+  }
+
+  async updateSpace(id: string, spaceData: Partial<CreateSpaceData>): Promise<AxiosResponse<ApiResponse<{ space: Space }>>> {
+    console.log('Updating space:', id, 'with data:', JSON.stringify(spaceData, null, 2));
+    return this.api.put(`/spaces/${id}`, spaceData);
+  }
+
+  async deleteSpace(id: string): Promise<AxiosResponse<ApiResponse<{}>>> {
+    return this.api.delete(`/spaces/${id}`);
+  }
+
+  async getSpaceStats(): Promise<AxiosResponse<ApiResponse<SpaceStats>>> {
+    return this.api.get('/spaces/stats');
+  }
+
+  async getSpaceAvailability(params: {
+    spaceId?: string;
+    startDate: string;
+    endDate: string;
+  }): Promise<AxiosResponse<ApiResponse<{ dateRange: { startDate: string; endDate: string }; availability: SpaceAvailability[] }>>> {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return this.api.get(`/spaces/availability?${queryParams.toString()}`);
   }
 }
 

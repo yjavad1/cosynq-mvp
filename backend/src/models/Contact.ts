@@ -66,6 +66,18 @@ export interface IContact extends Document {
     endDate?: Date;
     monthlyRate?: number;
   };
+
+  // Space and booking preferences
+  spacePreferences?: {
+    preferredSpaceTypes?: string[];
+    preferredAmenities?: string[];
+    preferredFloors?: string[];
+    bookingHistory?: Types.ObjectId[]; // References to Booking documents
+    lastBookingDate?: Date;
+    totalBookings?: number;
+    favoriteSpacess?: Types.ObjectId[]; // References to Space documents
+    accessRestrictions?: string[];
+  };
   
   priority: 'low' | 'medium' | 'high';
   
@@ -204,6 +216,22 @@ const contactSchema = new Schema<IContact>({
     startDate: Date,
     endDate: Date,
     monthlyRate: Number
+  },
+  spacePreferences: {
+    preferredSpaceTypes: [String],
+    preferredAmenities: [String],
+    preferredFloors: [String],
+    bookingHistory: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Booking'
+    }],
+    lastBookingDate: Date,
+    totalBookings: { type: Number, default: 0 },
+    favoriteSpacess: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Space'
+    }],
+    accessRestrictions: [String]
   },
   priority: {
     type: String,

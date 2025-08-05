@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoutes from './auth';
 import contactRoutes from './contacts';
+import spaceRoutes from './spaces';
 
 const router = express.Router();
 
@@ -12,6 +13,9 @@ console.log('✅ Auth routes registered at /api/auth');
 
 router.use('/contacts', contactRoutes);
 console.log('✅ Contact routes registered at /api/contacts');
+
+router.use('/spaces', spaceRoutes);
+console.log('✅ Space routes registered at /api/spaces');
 
 router.get('/health', (req, res) => {
   res.json({ 
@@ -36,7 +40,14 @@ router.get('/health', (req, res) => {
       'POST /api/contacts/:id/interactions',
       'PATCH /api/contacts/:id/context-state',
       'GET /api/contacts/:id/ai-context',
-      'GET /api/contacts/:id/conversation-prompts'
+      'GET /api/contacts/:id/conversation-prompts',
+      'GET /api/spaces',
+      'POST /api/spaces',
+      'GET /api/spaces/stats',
+      'GET /api/spaces/availability',
+      'GET /api/spaces/:id',
+      'PUT /api/spaces/:id',
+      'DELETE /api/spaces/:id'
     ]
   });
 });

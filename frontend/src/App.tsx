@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import { ContactsPage } from './pages/ContactsPage'
+import { SpacesPage } from './pages/SpacesPage'
 
 const queryClient = new QueryClient()
 
@@ -51,6 +52,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ContactsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/spaces" 
+                element={
+                  <ProtectedRoute>
+                    <SpacesPage />
                   </ProtectedRoute>
                 } 
               />
