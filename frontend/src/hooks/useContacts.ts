@@ -128,8 +128,21 @@ export function useAddInteraction() {
       };
     }) => apiService.addInteraction(contactId, interaction),
     onSuccess: (response, { contactId }) => {
+      console.log('✅ Interaction added successfully:', response.data);
+      // Invalidate the contacts list to refresh it
       queryClient.invalidateQueries({ queryKey: [CONTACTS_QUERY_KEY] });
-      queryClient.setQueryData([CONTACTS_QUERY_KEY, contactId], response);
+      // Update the specific contact data with the new interaction
+      queryClient.setQueryData([CONTACTS_QUERY_KEY, contactId], response.data);
+      // Also invalidate contact stats as they might include recent interactions
+      queryClient.invalidateQueries({ queryKey: [CONTACT_STATS_QUERY_KEY] });
+    },
+    onError: (error: any, { contactId, interaction }) => {
+      console.error('❌ Failed to add interaction:', error);
+      console.error('Contact ID:', contactId);
+      console.error('Interaction data:', interaction);
+      if (error.response?.data) {
+        console.error('Server error response:', error.response.data);
+      }
     },
   });
 }
@@ -149,7 +162,7 @@ export function useUpdateContextState() {
     }) => apiService.updateContextState(contactId, { contextState, reason }),
     onSuccess: (response, { contactId }) => {
       queryClient.invalidateQueries({ queryKey: [CONTACTS_QUERY_KEY] });
-      queryClient.setQueryData([CONTACTS_QUERY_KEY, contactId], response);
+      queryClient.setQueryData([CONTACTS_QUERY_KEY, contactId], response.data);
       queryClient.invalidateQueries({ queryKey: [CONTACT_STATS_QUERY_KEY] });
     },
   });

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Contact } from '@shared/types';
 import { useAddInteraction, useDeleteContact } from '../../hooks/useContacts';
-import { X, Mail, Phone, Building, MapPin, Edit, Trash2, Plus, MessageSquare } from 'lucide-react';
+import { X, Mail, Phone, Building, MapPin, Edit, Trash2, Plus } from 'lucide-react';
 import { ContactForm } from './ContactForm';
+import { InteractionTimeline } from './InteractionTimeline';
 
 interface ContactDetailProps {
   contact: Contact;
@@ -13,10 +14,25 @@ interface ContactDetailProps {
 export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showAddInteraction, setShowAddInteraction] = useState(false);
-  const [newInteraction, setNewInteraction] = useState({
-    type: 'note' as const,
+  const [interactionError, setInteractionError] = useState<string | null>(null);
+  const [newInteraction, setNewInteraction] = useState<{
+    type: 'call' | 'email' | 'meeting' | 'note' | 'tour' | 'ai_conversation';
+    subject: string;
+    content: string;
+    metadata: {
+      duration: number | undefined;
+      outcome: string;
+      nextActions: string[];
+    };
+  }>({
+    type: 'note',
     subject: '',
     content: '',
+    metadata: {
+      duration: undefined,
+      outcome: '',
+      nextActions: [],
+    },
   });
 
   const addInteractionMutation = useAddInteraction();
@@ -25,15 +41,64 @@ export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) 
   const handleAddInteraction = async () => {
     if (!newInteraction.content.trim()) return;
 
+    setInteractionError(null);
+
     try {
+      console.log('🔄 Adding interaction:', newInteraction);
+      console.log('🔄 Contact ID:', contact._id);
+      
+      // Clean up the interaction data to only send fields with values
+      const cleanInteraction: any = {
+        type: newInteraction.type,
+        content: newInteraction.content.trim(),
+      };
+
+      // Only include subject if it has a value
+      if (newInteraction.subject && newInteraction.subject.trim()) {
+        cleanInteraction.subject = newInteraction.subject.trim();
+      }
+
+      // Only include metadata if it has meaningful values
+      const hasMetadata = newInteraction.metadata.duration || 
+                         (newInteraction.metadata.outcome && newInteraction.metadata.outcome.trim()) ||
+                         (newInteraction.metadata.nextActions && newInteraction.metadata.nextActions.length > 0);
+      
+      if (hasMetadata) {
+        cleanInteraction.metadata = {};
+        if (newInteraction.metadata.duration) {
+          cleanInteraction.metadata.duration = newInteraction.metadata.duration;
+        }
+        if (newInteraction.metadata.outcome && newInteraction.metadata.outcome.trim()) {
+          cleanInteraction.metadata.outcome = newInteraction.metadata.outcome.trim();
+        }
+        if (newInteraction.metadata.nextActions && newInteraction.metadata.nextActions.length > 0) {
+          cleanInteraction.metadata.nextActions = newInteraction.metadata.nextActions;
+        }
+      }
+
+      console.log('🔄 Clean interaction data:', cleanInteraction);
+      
       await addInteractionMutation.mutateAsync({
         contactId: contact._id,
-        interaction: newInteraction,
+        interaction: cleanInteraction,
       });
-      setNewInteraction({ type: 'note', subject: '', content: '' });
+      
+      console.log('✅ Interaction added successfully');
+      setNewInteraction({ 
+        type: 'note', 
+        subject: '', 
+        content: '',
+        metadata: {
+          duration: undefined,
+          outcome: '',
+          nextActions: [],
+        },
+      });
       setShowAddInteraction(false);
-    } catch (error) {
-      console.error('Error adding interaction:', error);
+    } catch (error: any) {
+      console.error('❌ Error adding interaction:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to add interaction';
+      setInteractionError(errorMessage);
     }
   };
 
@@ -283,6 +348,11 @@ export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) 
                   {/* Add Interaction Form */}
                   {showAddInteraction && (
                     <div className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      {interactionError && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-sm text-red-600">{interactionError}</p>
+                        </div>
+                      )}
                       <div className="space-y-3">
                         <div>
                           <select
@@ -315,9 +385,58 @@ export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) 
                             rows={3}
                           />
                         </div>
+                        
+                        {/* Additional fields for calls and meetings */}
+                        {(newInteraction.type === 'call' || newInteraction.type === 'meeting') && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <input
+                                type="number"
+                                placeholder="Duration (minutes)"
+                                value={newInteraction.metadata.duration || ''}
+                                onChange={(e) => setNewInteraction({ 
+                                  ...newInteraction, 
+                                  metadata: { 
+                                    ...newInteraction.metadata, 
+                                    duration: e.target.value ? parseInt(e.target.value) : undefined 
+                                  } 
+                                })}
+                                className="block w-full rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="Outcome"
+                                value={newInteraction.metadata.outcome}
+                                onChange={(e) => setNewInteraction({ 
+                                  ...newInteraction, 
+                                  metadata: { 
+                                    ...newInteraction.metadata, 
+                                    outcome: e.target.value 
+                                  } 
+                                })}
+                                className="block w-full rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div className="flex justify-end space-x-2">
                           <button
-                            onClick={() => setShowAddInteraction(false)}
+                            onClick={() => {
+                              setShowAddInteraction(false);
+                              setInteractionError(null);
+                              setNewInteraction({ 
+                                type: 'note', 
+                                subject: '', 
+                                content: '',
+                                metadata: {
+                                  duration: undefined,
+                                  outcome: '',
+                                  nextActions: [],
+                                },
+                              });
+                            }}
                             className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                           >
                             Cancel
@@ -334,33 +453,9 @@ export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) 
                     </div>
                   )}
 
-                  {/* Interactions List */}
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {contact.interactions.length > 0 ? (
-                      contact.interactions
-                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                        .map((interaction) => (
-                          <div key={interaction._id} className="border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center space-x-2">
-                                <MessageSquare className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-900 capitalize">
-                                  {interaction.type}
-                                </span>
-                                {interaction.subject && (
-                                  <span className="text-sm text-gray-600">- {interaction.subject}</span>
-                                )}
-                              </div>
-                              <span className="text-xs text-gray-500">
-                                {new Date(interaction.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{interaction.content}</p>
-                          </div>
-                        ))
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">No interactions yet</p>
-                    )}
+                  {/* Interactions Timeline */}
+                  <div className="max-h-96 overflow-y-auto">
+                    <InteractionTimeline interactions={contact.interactions} />
                   </div>
                 </div>
               </div>

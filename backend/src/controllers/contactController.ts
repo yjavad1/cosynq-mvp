@@ -44,7 +44,7 @@ const updateContactSchema = createContactSchema.fork(
 
 const addInteractionSchema = Joi.object({
   type: Joi.string().valid('call', 'email', 'meeting', 'note', 'tour', 'ai_conversation').required(),
-  subject: Joi.string().max(200).optional(),
+  subject: Joi.string().max(200).allow('').optional(),
   content: Joi.string().max(5000).required(),
   metadata: Joi.object({
     aiModel: Joi.string().optional(),

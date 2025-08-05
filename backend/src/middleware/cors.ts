@@ -12,7 +12,9 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:3002',
       'https://localhost:3000',
+      'https://localhost:3002',
       process.env.FRONTEND_URL,
       // Railway frontend domain
       'https://zonal-possibility-production.up.railway.app'
