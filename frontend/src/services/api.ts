@@ -1,5 +1,16 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { AuthResponse, LoginCredentials, RegisterCredentials, User } from '@shared/types';
+import { 
+  AuthResponse, 
+  LoginCredentials, 
+  RegisterCredentials, 
+  User,
+  Contact,
+  CreateContactData,
+  ContactsResponse,
+  ContactStats,
+  ContextState,
+  ApiResponse
+} from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -87,6 +98,87 @@ class ApiService {
 
   async checkHealth(): Promise<AxiosResponse> {
     return this.api.get('/health');
+  }
+
+  // Contact Management Methods
+  async getContacts(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    type?: string;
+    contextState?: string;
+    assignedTo?: string;
+    priority?: string;
+    tags?: string;
+  }): Promise<AxiosResponse<ApiResponse<ContactsResponse>>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return this.api.get(`/contacts${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getContact(id: string): Promise<AxiosResponse<ApiResponse<{ contact: Contact }>>> {
+    return this.api.get(`/contacts/${id}`);
+  }
+
+  async createContact(contactData: CreateContactData): Promise<AxiosResponse<ApiResponse<{ contact: Contact }>>> {
+    console.log('Sending contact data to API:', JSON.stringify(contactData, null, 2));
+    return this.api.post('/contacts', contactData);
+  }
+
+  async updateContact(id: string, contactData: Partial<CreateContactData>): Promise<AxiosResponse<ApiResponse<{ contact: Contact }>>> {
+    console.log('=== API SERVICE UPDATE CONTACT ===');
+    console.log('Contact ID:', id);
+    console.log('Sending update data to API:', JSON.stringify(contactData, null, 2));
+    
+    try {
+      const response = await this.api.put(`/contacts/${id}`, contactData);
+      console.log('API response received:', response.status, response.statusText);
+      return response;
+    } catch (error: any) {
+      console.error('API service update error:', error);
+      if (error.response) {
+        console.error('Error response status:', error.response.status);
+        console.error('Error response data:', error.response.data);
+      }
+      throw error;
+    }
+  }
+
+  async deleteContact(id: string): Promise<AxiosResponse<ApiResponse<{}>>> {
+    return this.api.delete(`/contacts/${id}`);
+  }
+
+  async addInteraction(contactId: string, interaction: {
+    type: 'call' | 'email' | 'meeting' | 'note' | 'tour' | 'ai_conversation';
+    subject?: string;
+    content: string;
+    metadata?: {
+      aiModel?: string;
+      aiContext?: string;
+      duration?: number;
+      outcome?: string;
+      nextActions?: string[];
+    };
+  }): Promise<AxiosResponse<ApiResponse<{ contact: Contact }>>> {
+    return this.api.post(`/contacts/${contactId}/interactions`, interaction);
+  }
+
+  async updateContextState(contactId: string, data: {
+    contextState: ContextState;
+    reason?: string;
+  }): Promise<AxiosResponse<ApiResponse<{ contact: Contact }>>> {
+    return this.api.patch(`/contacts/${contactId}/context-state`, data);
+  }
+
+  async getContactStats(): Promise<AxiosResponse<ApiResponse<ContactStats>>> {
+    return this.api.get('/contacts/stats');
   }
 }
 

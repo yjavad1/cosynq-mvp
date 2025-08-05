@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
+import { ContactsPage } from './pages/ContactsPage'
 
 const queryClient = new QueryClient()
 
@@ -41,6 +42,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <DashboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/contacts" 
+                element={
+                  <ProtectedRoute>
+                    <ContactsPage />
                   </ProtectedRoute>
                 } 
               />

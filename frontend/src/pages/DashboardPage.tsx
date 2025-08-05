@@ -1,5 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Users, Settings, BarChart3, Calendar } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -105,6 +107,79 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Quick Actions */}
+          <div className="mt-8">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Link
+                to="/contacts"
+                className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
+              >
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
+                    <Users className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Contact Management
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Manage leads, members, and prospects with AI-powered context tracking.
+                  </p>
+                </div>
+              </Link>
+
+              <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+                    <Calendar className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-400">
+                    Bookings
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Coming soon - Manage space bookings and reservations.
+                  </p>
+                </div>
+              </div>
+
+              <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+                    <BarChart3 className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-400">
+                    Analytics
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Coming soon - Business insights and reporting.
+                  </p>
+                </div>
+              </div>
+
+              <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+                    <Settings className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-400">
+                    Settings
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Coming soon - Manage your workspace and preferences.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="mt-8">
             <div className="bg-white shadow rounded-lg">
               <div className="px-4 py-5 sm:p-6">
@@ -113,8 +188,8 @@ const DashboardPage: React.FC = () => {
                 </h3>
                 <div className="mt-2 max-w-xl text-sm text-gray-500">
                   <p>
-                    Your authentication system is working perfectly. This is your dashboard
-                    where you'll manage your coworking spaces, bookings, and more.
+                    Your comprehensive contact management system is now ready. Start by managing your 
+                    leads, members, and prospects with AI-powered context tracking and interaction history.
                   </p>
                 </div>
                 <div className="mt-5">

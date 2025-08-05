@@ -1,5 +1,6 @@
 import express from 'express';
 import authRoutes from './auth';
+import contactRoutes from './contacts';
 
 const router = express.Router();
 
@@ -8,6 +9,9 @@ console.log('🔧 Registering API routes...');
 
 router.use('/auth', authRoutes);
 console.log('✅ Auth routes registered at /api/auth');
+
+router.use('/contacts', contactRoutes);
+console.log('✅ Contact routes registered at /api/contacts');
 
 router.get('/health', (req, res) => {
   res.json({ 
@@ -22,7 +26,17 @@ router.get('/health', (req, res) => {
       'POST /api/auth/register',
       'POST /api/auth/login',
       'GET /api/auth/profile',
-      'POST /api/auth/logout'
+      'POST /api/auth/logout',
+      'GET /api/contacts',
+      'POST /api/contacts',
+      'GET /api/contacts/stats',
+      'GET /api/contacts/:id',
+      'PUT /api/contacts/:id',
+      'DELETE /api/contacts/:id',
+      'POST /api/contacts/:id/interactions',
+      'PATCH /api/contacts/:id/context-state',
+      'GET /api/contacts/:id/ai-context',
+      'GET /api/contacts/:id/conversation-prompts'
     ]
   });
 });
