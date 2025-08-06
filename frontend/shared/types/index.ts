@@ -306,3 +306,167 @@ export interface SpaceAvailability {
     status: SpaceStatus;
   }>;
 }
+
+// Location Management Types
+export type AmenityType = 
+  | 'WiFi' 
+  | 'AC' 
+  | 'Parking' 
+  | 'Coffee' 
+  | 'Security' 
+  | 'Reception' 
+  | 'Kitchen' 
+  | 'Printer' 
+  | 'Scanner' 
+  | 'Whiteboard' 
+  | 'Projector' 
+  | 'Conference_Room' 
+  | 'Phone_Booth' 
+  | 'Lounge' 
+  | 'Gym' 
+  | 'Shower' 
+  | 'Bike_Storage' 
+  | 'Mail_Service' 
+  | 'Cleaning_Service' 
+  | 'Catering' 
+  | 'Event_Space' 
+  | 'Terrace' 
+  | 'Garden' 
+  | 'Handicap_Accessible';
+
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface OperatingHours {
+  day: DayOfWeek;
+  isOpen: boolean;
+  openTime?: string; // Format: "09:00" (24-hour format)
+  closeTime?: string; // Format: "18:00" (24-hour format)
+  isHoliday?: boolean;
+  notes?: string;
+}
+
+export interface LocationContact {
+  type: 'phone' | 'email' | 'whatsapp' | 'emergency';
+  value: string;
+  isPrimary?: boolean;
+  label?: string;
+}
+
+export interface LocationAddress {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  landmark?: string;
+  floor?: string;
+  unitNumber?: string;
+}
+
+export interface Location {
+  _id: string;
+  organizationId: string;
+  
+  name: string;
+  description?: string;
+  code: string; // Unique location code like "HQ", "BLR01"
+  
+  // Address and Contact Information
+  address: LocationAddress;
+  contacts: LocationContact[];
+  
+  // Operating Information
+  operatingHours: OperatingHours[];
+  timezone: string;
+  
+  // Amenities and Features
+  amenities: AmenityType[];
+  totalFloors?: number;
+  totalCapacity?: number;
+  
+  // Operational Settings
+  isActive: boolean;
+  allowSameDayBooking: boolean;
+  defaultBookingRules?: {
+    minimumBookingDuration: number; // in minutes
+    maximumBookingDuration: number; // in minutes
+    advanceBookingLimit: number; // in days
+    cancellationPolicy?: string;
+  };
+  
+  // Metadata
+  images?: string[];
+  virtualTourUrl?: string;
+  
+  // Management
+  managerId?: User;
+  staff?: User[];
+  
+  // Analytics and Tracking
+  stats?: {
+    totalSpaces?: number;
+    totalBookingsToday?: number;
+    currentOccupancy?: number;
+    lastMaintenanceDate?: Date;
+  };
+  
+  // Audit fields
+  createdBy: User;
+  updatedBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateLocationData {
+  name: string;
+  description?: string;
+  code: string;
+  address: LocationAddress;
+  contacts: LocationContact[];
+  operatingHours: OperatingHours[];
+  timezone?: string;
+  amenities?: AmenityType[];
+  totalFloors?: number;
+  totalCapacity?: number;
+  isActive?: boolean;
+  allowSameDayBooking?: boolean;
+  defaultBookingRules?: {
+    minimumBookingDuration?: number;
+    maximumBookingDuration?: number;
+    advanceBookingLimit?: number;
+    cancellationPolicy?: string;
+  };
+  images?: string[];
+  virtualTourUrl?: string;
+  managerId?: string;
+  staff?: string[];
+}
+
+export interface LocationsResponse {
+  locations: Location[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface LocationStats {
+  totalLocations: number;
+  activeLocations: number;
+  inactiveLocations: number;
+  locationsByCity: Array<{ city: string; count: number }>;
+  topAmenities: Array<{ amenity: AmenityType; count: number }>;
+  recentLocations: Array<{
+    _id: string;
+    name: string;
+    code: string;
+    address: { city: string };
+    createdAt: Date;
+  }>;
+}

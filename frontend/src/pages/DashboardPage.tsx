@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Settings, BarChart3, Calendar, Building } from 'lucide-react';
+import { Users, Settings, BarChart3, Calendar, Building, MapPin } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -126,6 +126,25 @@ const DashboardPage: React.FC = () => {
                   </h3>
                   <p className="mt-2 text-sm text-gray-500">
                     Manage leads, members, and prospects with AI-powered context tracking.
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                to="/locations"
+                className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-green-500 rounded-lg shadow hover:shadow-md transition-shadow"
+              >
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
+                    <MapPin className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Location Management
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Manage your workspace locations with operating hours, contacts, and amenities.
                   </p>
                 </div>
               </Link>

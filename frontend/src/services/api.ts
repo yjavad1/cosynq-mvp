@@ -14,7 +14,12 @@ import {
   CreateSpaceData,
   SpacesResponse,
   SpaceStats,
-  SpaceAvailability
+  SpaceAvailability,
+  Location,
+  CreateLocationData,
+  LocationsResponse,
+  LocationStats,
+  AmenityType
 } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -244,6 +249,64 @@ class ApiService {
       }
     });
     return this.api.get(`/spaces/availability?${queryParams.toString()}`);
+  }
+
+  // Location Management Methods
+  async getLocations(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+    city?: string;
+    state?: string;
+    amenities?: string;
+    minCapacity?: number;
+    maxCapacity?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }): Promise<AxiosResponse<ApiResponse<LocationsResponse>>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return this.api.get(`/locations${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getLocation(id: string): Promise<AxiosResponse<ApiResponse<{ location: Location }>>> {
+    return this.api.get(`/locations/${id}`);
+  }
+
+  async createLocation(locationData: CreateLocationData): Promise<AxiosResponse<ApiResponse<{ location: Location }>>> {
+    console.log('Creating location with data:', JSON.stringify(locationData, null, 2));
+    return this.api.post('/locations', locationData);
+  }
+
+  async updateLocation(id: string, locationData: Partial<CreateLocationData>): Promise<AxiosResponse<ApiResponse<{ location: Location }>>> {
+    console.log('Updating location:', id, 'with data:', JSON.stringify(locationData, null, 2));
+    return this.api.put(`/locations/${id}`, locationData);
+  }
+
+  async deleteLocation(id: string): Promise<AxiosResponse<ApiResponse<{}>>> {
+    return this.api.delete(`/locations/${id}`);
+  }
+
+  async getLocationStats(): Promise<AxiosResponse<ApiResponse<LocationStats>>> {
+    return this.api.get('/locations/stats');
+  }
+
+  async checkLocationHours(id: string): Promise<AxiosResponse<ApiResponse<{
+    isOpen: boolean;
+    currentTime: string;
+    currentDay: string;
+    todayHours: any;
+    timezone: string;
+  }>>> {
+    return this.api.get(`/locations/${id}/hours`);
   }
 }
 

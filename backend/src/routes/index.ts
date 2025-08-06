@@ -2,6 +2,8 @@ import express from 'express';
 import authRoutes from './auth';
 import contactRoutes from './contacts';
 import spaceRoutes from './spaces';
+import locationRoutes from './locations';
+import productTypeRoutes from './productTypes';
 
 const router = express.Router();
 
@@ -16,6 +18,12 @@ console.log('✅ Contact routes registered at /api/contacts');
 
 router.use('/spaces', spaceRoutes);
 console.log('✅ Space routes registered at /api/spaces');
+
+router.use('/locations', locationRoutes);
+console.log('✅ Location routes registered at /api/locations');
+
+router.use('/product-types', productTypeRoutes);
+console.log('✅ Product Type routes registered at /api/product-types');
 
 router.get('/health', (req, res) => {
   res.json({ 
@@ -47,13 +55,27 @@ router.get('/health', (req, res) => {
       'GET /api/spaces/availability',
       'GET /api/spaces/:id',
       'PUT /api/spaces/:id',
-      'DELETE /api/spaces/:id'
+      'DELETE /api/spaces/:id',
+      'GET /api/locations',
+      'POST /api/locations',
+      'GET /api/locations/stats',
+      'GET /api/locations/:id',
+      'PUT /api/locations/:id',
+      'DELETE /api/locations/:id',
+      'GET /api/locations/:id/hours',
+      'GET /api/product-types',
+      'POST /api/product-types',
+      'GET /api/product-types/stats',
+      'GET /api/product-types/:id',
+      'PUT /api/product-types/:id',
+      'DELETE /api/product-types/:id',
+      'POST /api/product-types/:id/generate-spaces'
     ]
   });
 });
 
 // Add a debug route to list all registered routes
-router.get('/routes', (req, res) => {
+router.get('/routes', (_req, res) => {
   const routes: any[] = [];
   
   function extractRoutes(stack: any[], basePath = '') {

@@ -7,6 +7,11 @@ export interface AuthRequest extends Request {
   userId?: string;
 }
 
+export interface AuthenticatedRequest extends Request {
+  user: IUser;  // For routes that require authentication
+  userId?: string;
+}
+
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -60,7 +65,7 @@ export const authorize = (roles: string[]) => {
   };
 };
 
-export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     
