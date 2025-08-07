@@ -65,6 +65,8 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
       timezone: 'Asia/Kolkata',
       isActive: true,
       allowSameDayBooking: true,
+      totalFloors: 1,
+      totalCapacity: undefined, // Optional field
       operatingHours: days.map(day => ({
         day: day.key,
         isOpen: !['saturday', 'sunday'].includes(day.key),
@@ -148,8 +150,12 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
         return;
       }
 
-      const locationData = {
+      // Clean up number fields to avoid null values
+      const cleanedData = {
         ...data,
+        // Ensure number fields are proper numbers or undefined, never null
+        totalFloors: data.totalFloors && typeof data.totalFloors === 'number' ? data.totalFloors : 1,
+        totalCapacity: data.totalCapacity && typeof data.totalCapacity === 'number' ? data.totalCapacity : undefined,
         contacts: validContacts,
         amenities: selectedAmenities
       };
@@ -157,10 +163,10 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
       if (isEditing && location) {
         await updateLocation.mutateAsync({
           id: location._id,
-          locationData
+          locationData: cleanedData
         });
       } else {
-        await createLocation.mutateAsync(locationData);
+        await createLocation.mutateAsync(cleanedData);
       }
       
       onSuccess();
@@ -573,12 +579,27 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
                               Total Capacity
                             </label>
                             <input
-                              {...register('totalCapacity', { valueAsNumber: true })}
+                              {...register('totalCapacity', { 
+                                valueAsNumber: true,
+                                validate: (value) => {
+                                  // Allow undefined (empty field) or valid numbers
+                                  return value === undefined || (typeof value === 'number' && value > 0) || 'Must be a positive number';
+                                },
+                                setValueAs: (value) => {
+                                  // Convert empty string to undefined to avoid null
+                                  if (value === '' || value === null || value === undefined) return undefined;
+                                  const num = Number(value);
+                                  return isNaN(num) ? undefined : num;
+                                }
+                              })}
                               type="number"
                               min="1"
                               className="block w-full border border-gray-300 rounded-md px-3 py-2 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                               placeholder="e.g., 200"
                             />
+                            {errors.totalCapacity && (
+                              <p className="mt-1 text-sm text-red-600">{errors.totalCapacity.message}</p>
+                            )}
                           </div>
 
                           <div>
@@ -586,12 +607,27 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
                               Total Floors
                             </label>
                             <input
-                              {...register('totalFloors', { valueAsNumber: true })}
+                              {...register('totalFloors', { 
+                                valueAsNumber: true,
+                                validate: (value) => {
+                                  // totalFloors should have a default of 1, so validate it's a positive number
+                                  return (typeof value === 'number' && value > 0) || 'Must be a positive number';
+                                },
+                                setValueAs: (value) => {
+                                  // Convert empty string to 1 (default), avoid null
+                                  if (value === '' || value === null || value === undefined) return 1;
+                                  const num = Number(value);
+                                  return isNaN(num) ? 1 : Math.max(1, num);
+                                }
+                              })}
                               type="number"
                               min="1"
                               className="block w-full border border-gray-300 rounded-md px-3 py-2 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                               placeholder="e.g., 3"
                             />
+                            {errors.totalFloors && (
+                              <p className="mt-1 text-sm text-red-600">{errors.totalFloors.message}</p>
+                            )}
                           </div>
 
                           <div>
