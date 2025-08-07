@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api';
-import { Location, CreateLocationData, LocationStats, AmenityType } from '@shared/types';
+import { CreateLocationData, AmenityType } from '@shared/types';
 
 // Locations Query
 export const useLocations = (params?: {
@@ -91,7 +91,7 @@ export const useUpdateLocation = () => {
       const response = await apiService.updateLocation(id, locationData);
       return response.data.data?.location;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Invalidate and refetch locations list and stats
       queryClient.invalidateQueries({ queryKey: ['locations'] });
       queryClient.invalidateQueries({ queryKey: ['location-stats'] });

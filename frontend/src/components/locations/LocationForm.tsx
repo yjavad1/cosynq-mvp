@@ -1,13 +1,12 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { useForm, Controller } from 'react-hook-form';
-import { X, Plus, Trash2, MapPin, Clock, Phone, Mail, Building, Star } from 'lucide-react';
+import { X, Plus, Trash2, MapPin, Clock, Phone, Building, Star } from 'lucide-react';
 import { 
   Location, 
   CreateLocationData, 
   AmenityType, 
   DayOfWeek, 
-  OperatingHours, 
   LocationContact 
 } from '@shared/types';
 import { useCreateLocation, useUpdateLocation, getAmenityDisplayName, getAmenityIcon } from '../../hooks/useLocations';
@@ -60,7 +59,6 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-    setValue,
     watch
   } = useForm<CreateLocationData>({
     defaultValues: {
@@ -477,7 +475,10 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
                                     <label className="flex items-center">
                                       <input
                                         type="checkbox"
-                                        {...field}
+                                        name={field.name}
+                                        ref={field.ref}
+                                        onBlur={field.onBlur}
+                                        onChange={field.onChange}
                                         checked={field.value}
                                         className="text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                       />

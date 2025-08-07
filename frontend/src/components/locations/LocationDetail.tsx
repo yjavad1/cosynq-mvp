@@ -9,7 +9,6 @@ import {
   Users, 
   Building, 
   Star,
-  Calendar,
   Activity,
   Globe,
   Camera

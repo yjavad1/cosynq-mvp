@@ -5,7 +5,6 @@ import { LocationForm } from '../components/locations/LocationForm';
 import { LocationStats } from '../components/locations/LocationStats';
 import { LocationFilters } from '../components/locations/LocationFilters';
 import { Plus, MapPin, AlertTriangle } from 'lucide-react';
-import { AmenityType } from '@shared/types';
 
 export function LocationsPage() {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
