@@ -1,7 +1,9 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { useForm, Controller } from 'react-hook-form';
-import { X, Plus, Trash2, MapPin, Clock, Phone, Building, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Plus, Trash2, MapPin, Clock, Phone, Building, Star, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { AxiosError } from 'axios';
 import { 
   Location, 
   CreateLocationData, 
@@ -16,6 +18,14 @@ interface LocationFormProps {
   onClose: () => void;
   onSuccess: () => void;
   location?: Location; // For editing
+  isOnboarding?: boolean; // Whether this form is part of onboarding flow
+  onOnboardingNext?: () => void; // Callback for onboarding next step
+}
+
+interface ApiErrorResponse {
+  message: string;
+  errors?: string[];
+  success: boolean;
 }
 
 const availableAmenities: AmenityType[] = [
@@ -43,12 +53,23 @@ const contactTypes = [
   { value: 'emergency', label: 'Emergency' },
 ];
 
-export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationFormProps) {
+export function LocationForm({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  location, 
+  isOnboarding = false,
+  onOnboardingNext 
+}: LocationFormProps) {
   const [selectedAmenities, setSelectedAmenities] = useState<AmenityType[]>([]);
   const [contacts, setContacts] = useState<LocationContact[]>([
     { type: 'phone', value: '', isPrimary: true }
   ]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState<boolean>(false);
   
+  const navigate = useNavigate();
   const isEditing = !!location;
   const createLocation = useCreateLocation();
   const updateLocation = useUpdateLocation();
@@ -104,7 +125,11 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
         { type: 'phone', value: '', isPrimary: true }
       ]);
     }
-  }, [location, reset]);
+    // Clear any previous error and success message when opening/closing the form or switching locations
+    setSubmitError(null);
+    setShowSuccessMessage(false);
+    setIsSubmittingForm(false);
+  }, [location, reset, isOpen]);
 
   const handleAmenityToggle = (amenity: AmenityType) => {
     setSelectedAmenities(prev => 
@@ -138,20 +163,55 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
   };
 
   const onSubmit = async (data: CreateLocationData) => {
+    // Clear any previous error and start submission
+    setSubmitError(null);
+    setShowSuccessMessage(false);
+    setIsSubmittingForm(true);
+
     try {
+      // Frontend validation for required fields
+      const requiredFields = [
+        { field: data.name, message: 'Location name is required and must be unique' },
+        { field: data.code, message: 'Location code is required and must be unique' },
+        { field: data.address?.street, message: 'Street address is required' },
+        { field: data.address?.city, message: 'City is required' },
+        { field: data.address?.state, message: 'State is required' },
+        { field: data.address?.zipCode, message: 'ZIP code is required' },
+      ];
+
+      for (const { field, message } of requiredFields) {
+        if (!field || field.trim() === '') {
+          setSubmitError(message);
+          setIsSubmittingForm(false);
+          return;
+        }
+      }
+
+      // Additional validation for unique name and code format
+      if (data.name.trim().length < 2) {
+        setSubmitError('Location name must be at least 2 characters long');
+        setIsSubmittingForm(false);
+        return;
+      }
+
+      if (data.code.trim().length < 2) {
+        setSubmitError('Location code must be at least 2 characters long');
+        setIsSubmittingForm(false);
+        return;
+      }
+
       // Filter out empty contacts
       const validContacts = contacts.filter(c => c.value.trim() !== '');
       
       // Check if we have at least one valid contact
       if (validContacts.length === 0) {
-        // Show validation error to user
-        console.error('Validation failed: At least one contact is required');
-        alert('Please provide at least one contact (phone or email) for the location.');
+        setSubmitError('Please provide at least one contact (phone or email) for the location.');
+        setIsSubmittingForm(false);
         return;
       }
 
       // Clean up number fields to avoid null values
-      const cleanedData = {
+      const cleanedData: CreateLocationData = {
         ...data,
         // Ensure number fields are proper numbers or undefined, never null
         totalFloors: data.totalFloors && typeof data.totalFloors === 'number' ? data.totalFloors : 1,
@@ -169,10 +229,92 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
         await createLocation.mutateAsync(cleanedData);
       }
       
-      onSuccess();
-    } catch (error) {
+      setIsSubmittingForm(false);
+
+      // Handle successful creation/update
+      if (isOnboarding && !isEditing) {
+        // For onboarding flow, show success message and navigation options
+        setShowSuccessMessage(true);
+        
+        // Update onboarding progress in localStorage
+        const onboardingProgress = JSON.parse(localStorage.getItem('cosynq_onboarding_progress') || '{}');
+        onboardingProgress.locationsAdded = true;
+        onboardingProgress.completedSteps = onboardingProgress.completedSteps || [];
+        if (!onboardingProgress.completedSteps.includes('locations')) {
+          onboardingProgress.completedSteps.push('locations');
+        }
+        localStorage.setItem('cosynq_onboarding_progress', JSON.stringify(onboardingProgress));
+        
+        // Don't call onSuccess() immediately to prevent form reset
+        // The success message will handle the next steps
+      } else {
+        // For regular location management, close form and refresh data
+        onSuccess();
+      }
+      
+    } catch (error: unknown) {
       console.error('Failed to save location:', error);
+      setIsSubmittingForm(false);
+      
+      // Check if it's an AxiosError with specific error handling
+      if (error && typeof error === 'object' && 'isAxiosError' in error) {
+        const axiosError = error as AxiosError<ApiErrorResponse>;
+        
+        if (axiosError.response?.status === 409) {
+          // Handle conflict error (duplicate field)
+          const errorMessage = axiosError.response?.data?.message || 'A location with this name or code already exists. Please choose a different one.';
+          setSubmitError(errorMessage);
+        } else if (axiosError.response?.data?.message) {
+          // Handle other API errors with specific messages
+          setSubmitError(axiosError.response.data.message);
+        } else {
+          // Handle network errors or other axios errors
+          setSubmitError('Failed to save location. Please check your connection and try again.');
+        }
+      } else {
+        // Handle non-axios errors
+        setSubmitError('Failed to save location. Please try again.');
+      }
     }
+  };
+
+  const handleProceedToSpaces = () => {
+    // Call onboarding next callback if provided
+    if (onOnboardingNext) {
+      onOnboardingNext();
+    } else {
+      // Navigate to spaces page
+      navigate('/spaces');
+    }
+    
+    // Close the form after navigation
+    onSuccess();
+  };
+
+  const handleAddAnotherLocation = () => {
+    // Reset form for adding another location
+    setShowSuccessMessage(false);
+    setSubmitError(null);
+    reset({
+      timezone: 'Asia/Kolkata',
+      isActive: true,
+      allowSameDayBooking: true,
+      totalFloors: 1,
+      totalCapacity: undefined,
+      operatingHours: days.map(day => ({
+        day: day.key,
+        isOpen: !['saturday', 'sunday'].includes(day.key),
+        openTime: '09:00',
+        closeTime: '18:00'
+      })),
+      defaultBookingRules: {
+        minimumBookingDuration: 60,
+        maximumBookingDuration: 480,
+        advanceBookingLimit: 30
+      }
+    });
+    setSelectedAmenities([]);
+    setContacts([{ type: 'phone', value: '', isPrimary: true }]);
   };
 
   return (
@@ -219,6 +361,62 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
                       {isEditing ? 'Edit Location' : 'Create New Location'}
                     </Dialog.Title>
 
+                    {/* Error Message Display */}
+                    {submitError && !showSuccessMessage && (
+                      <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <AlertCircle className="h-5 w-5 text-red-400" />
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-red-800">
+                              Error saving location
+                            </h3>
+                            <div className="mt-2 text-sm text-red-700">
+                              {submitError}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Success Message Display - Only for onboarding */}
+                    {showSuccessMessage && isOnboarding && (
+                      <div className="mb-6 bg-green-50 border border-green-200 rounded-md p-6">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <CheckCircle className="h-6 w-6 text-green-400" />
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-lg font-medium text-green-800 mb-2">
+                              Location created successfully!
+                            </h3>
+                            <p className="text-sm text-green-700 mb-4">
+                              Your location has been added to your workspace. You can now proceed to configure space types or add more locations.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <button
+                                onClick={handleProceedToSpaces}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              >
+                                <ArrowRight className="h-4 w-4 mr-2" />
+                                Continue to Space Types
+                              </button>
+                              <button
+                                onClick={handleAddAnotherLocation}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Another Location
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hide form when showing success message in onboarding */}
+                    {!(showSuccessMessage && isOnboarding) && (
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                       {/* Basic Information */}
                       <div>
@@ -675,13 +873,14 @@ export function LocationForm({ isOpen, onClose, onSuccess, location }: LocationF
                         </button>
                         <button
                           type="submit"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || isSubmittingForm || showSuccessMessage}
                           className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {isSubmitting ? 'Saving...' : (isEditing ? 'Update Location' : 'Create Location')}
+                          {(isSubmitting || isSubmittingForm) ? 'Saving...' : (isEditing ? 'Update Location' : 'Create Location')}
                         </button>
                       </div>
                     </form>
+                    )}
                   </div>
                 </div>
               </Dialog.Panel>

@@ -470,3 +470,62 @@ export interface LocationStats {
     createdAt: Date;
   }>;
 }
+
+// Setup Wizard Types
+export type SetupStep = 'company' | 'locations' | 'spaces' | 'pricing' | 'launch';
+
+export interface CompanyProfile {
+  companyName: string;
+  industry: string;
+  companySize: string;
+  logo?: string;
+  website?: string;
+  description?: string;
+}
+
+export interface SpaceTypeConfig {
+  id: string;
+  name: string;
+  description: string;
+  category: 'hot-desk' | 'cabin' | 'meeting-room' | 'event-space';
+  defaultCapacity: number;
+  amenities: AmenityType[];
+  defaultPricing: {
+    hourly?: number;
+    daily?: number;
+    monthly?: number;
+  };
+  isActive: boolean;
+}
+
+export interface PricingRule {
+  id: string;
+  name: string;
+  spaceTypeId: string;
+  tiers: Array<{
+    name: string;
+    minHours: number;
+    maxHours?: number;
+    hourlyRate: number;
+    discountPercent?: number;
+  }>;
+  isActive: boolean;
+}
+
+export interface SetupProgress {
+  currentStep: SetupStep;
+  completedSteps: SetupStep[];
+  companyProfile?: CompanyProfile;
+  locations: Location[];
+  spaceTypes: SpaceTypeConfig[];
+  pricingRules: PricingRule[];
+  isCompleted: boolean;
+  completionPercentage: number;
+}
+
+export interface SetupWizardProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+  initialStep?: SetupStep;
+}
