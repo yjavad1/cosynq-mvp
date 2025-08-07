@@ -7,20 +7,23 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  requiresOnboarding: boolean;
 }
 
 type AuthAction =
   | { type: 'AUTH_START' }
-  | { type: 'AUTH_SUCCESS'; payload: User }
+  | { type: 'AUTH_SUCCESS'; payload: { user: User; requiresOnboarding?: boolean } }
   | { type: 'AUTH_ERROR'; payload: string }
   | { type: 'AUTH_LOGOUT' }
-  | { type: 'CLEAR_ERROR' };
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'UPDATE_ONBOARDING'; payload: boolean };
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
+  updateOnboardingStatus: (requiresOnboarding: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,7 +39,8 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
     case 'AUTH_SUCCESS':
       return {
         ...state,
-        user: action.payload,
+        user: action.payload.user,
+        requiresOnboarding: action.payload.requiresOnboarding ?? false,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -56,11 +60,17 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        requiresOnboarding: false,
       };
     case 'CLEAR_ERROR':
       return {
         ...state,
         error: null,
+      };
+    case 'UPDATE_ONBOARDING':
+      return {
+        ...state,
+        requiresOnboarding: action.payload,
       };
     default:
       return state;
@@ -72,6 +82,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
   error: null,
+  requiresOnboarding: false,
 };
 
 interface AuthProviderProps {
@@ -95,7 +106,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const response = await apiService.getProfile();
-      dispatch({ type: 'AUTH_SUCCESS', payload: response.data.data.user });
+      dispatch({ 
+        type: 'AUTH_SUCCESS', 
+        payload: { 
+          user: response.data.data.user, 
+          requiresOnboarding: response.data.data.requiresOnboarding 
+        } 
+      });
     } catch (error) {
       localStorage.removeItem('cosynq_token');
       localStorage.removeItem('cosynq_refresh_token');
@@ -110,12 +127,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiService.login(credentials);
       
       if (response.data.success && response.data.data) {
-        const { user, token, refreshToken } = response.data.data;
+        const { user, token, refreshToken, requiresOnboarding } = response.data.data;
         
         localStorage.setItem('cosynq_token', token);
         localStorage.setItem('cosynq_refresh_token', refreshToken);
         
-        dispatch({ type: 'AUTH_SUCCESS', payload: user });
+        dispatch({ 
+          type: 'AUTH_SUCCESS', 
+          payload: { user, requiresOnboarding: requiresOnboarding || false } 
+        });
       } else {
         throw new Error(response.data.message || 'Login failed');
       }
@@ -133,12 +153,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiService.register(credentials);
       
       if (response.data.success && response.data.data) {
-        const { user, token, refreshToken } = response.data.data;
+        const { user, token, refreshToken, requiresOnboarding } = response.data.data;
         
         localStorage.setItem('cosynq_token', token);
         localStorage.setItem('cosynq_refresh_token', refreshToken);
         
-        dispatch({ type: 'AUTH_SUCCESS', payload: user });
+        dispatch({ 
+          type: 'AUTH_SUCCESS', 
+          payload: { user, requiresOnboarding: requiresOnboarding || true } // New users require onboarding by default
+        });
       } else {
         throw new Error(response.data.message || 'Registration failed');
       }
@@ -165,12 +188,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  const updateOnboardingStatus = (requiresOnboarding: boolean) => {
+    dispatch({ type: 'UPDATE_ONBOARDING', payload: requiresOnboarding });
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
     register,
     logout,
     clearError,
+    updateOnboardingStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

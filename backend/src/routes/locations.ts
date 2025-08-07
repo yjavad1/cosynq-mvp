@@ -9,11 +9,15 @@ import {
   checkLocationHours 
 } from '../controllers/locationController';
 import { authenticate } from '../middleware/auth';
+import { requireOnboarding } from '../middleware/onboarding';
 
 const router = express.Router();
 
 // Apply authentication middleware to all location routes
 router.use(authenticate);
+
+// Apply onboarding check to all location routes
+router.use(requireOnboarding);
 
 // Location CRUD operations
 router.post('/', createLocation);

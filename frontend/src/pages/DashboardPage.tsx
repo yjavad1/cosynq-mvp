@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Users, Settings, BarChart3, Calendar, Building, MapPin, Rocket, CheckCircle, ArrowRight } from 'lucide-react';
@@ -10,15 +10,11 @@ import { useLocationStats } from '../hooks/useLocations';
 import { useSpaceStats } from '../hooks/useSpaces';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, requiresOnboarding } = useAuth();
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
-  const [isSetupCompleted, setIsSetupCompleted] = useState(false);
 
-  // Load setup status from localStorage on mount
-  useEffect(() => {
-    const setupCompleted = localStorage.getItem('cosynq_setup_completed') === 'true';
-    setIsSetupCompleted(setupCompleted);
-  }, []);
+  // Setup is considered completed if onboarding is done
+  const isSetupCompleted = !requiresOnboarding;
 
   // Data queries for dashboard stats
   const { data: contactStats } = useContactStats();
@@ -34,7 +30,7 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleSetupComplete = () => {
-    setIsSetupCompleted(true);
+    // Onboarding completion is now handled by the onboarding system
     setIsSetupWizardOpen(false);
   };
 

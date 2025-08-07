@@ -12,10 +12,29 @@ export interface IUser extends Document {
   emailVerificationToken?: string;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  
+  // Onboarding fields
+  onboardingCompleted: boolean;
+  onboardingSkipped: boolean;
+  onboardingCompletedAt?: Date;
+  onboardingData?: {
+    companyName?: string;
+    industry?: string;
+    companySize?: string;
+    website?: string;
+    description?: string;
+    hasCreatedLocation?: boolean;
+    hasCreatedSpace?: boolean;
+    hasConfiguredPricing?: boolean;
+    completionSteps?: string[];
+  };
+  
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
   getFullName(): string;
+  requiresOnboarding(): boolean;
+  markOnboardingCompleted(skipOnboarding?: boolean): void;
 }
 
 const userSchema = new Schema<IUser>({
@@ -54,7 +73,63 @@ const userSchema = new Schema<IUser>({
   },
   emailVerificationToken: String,
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  
+  // Onboarding fields
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  onboardingSkipped: {
+    type: Boolean,
+    default: false
+  },
+  onboardingCompletedAt: {
+    type: Date
+  },
+  onboardingData: {
+    companyName: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    industry: {
+      type: String,
+      trim: true,
+      maxlength: 100
+    },
+    companySize: {
+      type: String,
+      enum: ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']
+    },
+    website: {
+      type: String,
+      trim: true,
+      maxlength: 200
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 1000
+    },
+    hasCreatedLocation: {
+      type: Boolean,
+      default: false
+    },
+    hasCreatedSpace: {
+      type: Boolean,
+      default: false
+    },
+    hasConfiguredPricing: {
+      type: Boolean,
+      default: false
+    },
+    completionSteps: [{
+      type: String,
+      enum: ['company', 'locations', 'spaces', 'pricing', 'launch']
+    }]
+  }
 }, {
   timestamps: true
 });
@@ -77,6 +152,24 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
 
 userSchema.methods.getFullName = function(): string {
   return `${this.firstName} ${this.lastName}`;
+};
+
+userSchema.methods.requiresOnboarding = function(): boolean {
+  return !this.onboardingCompleted && !this.onboardingSkipped;
+};
+
+userSchema.methods.markOnboardingCompleted = function(skipOnboarding: boolean = false): void {
+  this.onboardingCompleted = true;
+  this.onboardingSkipped = skipOnboarding;
+  this.onboardingCompletedAt = new Date();
+  
+  if (!this.onboardingData) {
+    this.onboardingData = {};
+  }
+  
+  if (skipOnboarding) {
+    this.onboardingData.completionSteps = ['company']; // Mark at least company step as completed
+  }
 };
 
 userSchema.index({ email: 1 });

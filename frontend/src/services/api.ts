@@ -18,7 +18,8 @@ import {
   Location,
   CreateLocationData,
   LocationsResponse,
-  LocationStats
+  LocationStats,
+  ProfileResponse
 } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -50,6 +51,23 @@ class ApiService {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        
+        // Handle onboarding required responses
+        if (error.response?.status === 403 && error.response?.data?.code === 'ONBOARDING_REQUIRED') {
+          // Store onboarding info and redirect to onboarding
+          const onboardingData = error.response.data.data;
+          localStorage.setItem('cosynq_onboarding_required', 'true');
+          if (onboardingData) {
+            localStorage.setItem('cosynq_onboarding_data', JSON.stringify(onboardingData));
+          }
+          
+          // Don't redirect if we're already on an onboarding-related path
+          const currentPath = window.location.pathname;
+          if (!currentPath.includes('/onboarding') && !currentPath.includes('/setup')) {
+            window.location.href = '/onboarding';
+            return Promise.reject(error);
+          }
+        }
         
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -97,7 +115,7 @@ class ApiService {
     return response;
   }
 
-  async getProfile(): Promise<AxiosResponse<{ success: boolean; data: { user: User } }>> {
+  async getProfile(): Promise<AxiosResponse<ProfileResponse>> {
     return this.api.get('/auth/profile');
   }
 
@@ -306,6 +324,51 @@ class ApiService {
     timezone: string;
   }>>> {
     return this.api.get(`/locations/${id}/hours`);
+  }
+
+  // Onboarding Management Methods
+  async getOnboardingStatus(): Promise<AxiosResponse<ApiResponse<{
+    onboardingCompleted: boolean;
+    onboardingSkipped: boolean;
+    onboardingCompletedAt?: string;
+    onboardingData: any;
+    requiresOnboarding: boolean;
+    completedSteps: string[];
+  }>>> {
+    return this.api.get('/onboarding/status');
+  }
+
+  async updateOnboardingData(data: {
+    companyName?: string;
+    industry?: string;
+    companySize?: string;
+    website?: string;
+    description?: string;
+    completionSteps?: string[];
+    skipOnboarding?: boolean;
+  }): Promise<AxiosResponse<ApiResponse<{
+    user: User;
+    requiresOnboarding: boolean;
+  }>>> {
+    console.log('Updating onboarding data:', JSON.stringify(data, null, 2));
+    return this.api.put('/onboarding/data', data);
+  }
+
+  async completeOnboarding(skipOnboarding: boolean = false): Promise<AxiosResponse<ApiResponse<{
+    onboardingCompleted: boolean;
+    onboardingSkipped: boolean;
+    requiresOnboarding: boolean;
+  }>>> {
+    return this.api.post('/onboarding/complete', { skipOnboarding });
+  }
+
+  async resetOnboarding(resetData: boolean = false): Promise<AxiosResponse<ApiResponse<{
+    onboardingCompleted: boolean;
+    onboardingSkipped: boolean;
+    onboardingData: any;
+    requiresOnboarding: boolean;
+  }>>> {
+    return this.api.post('/onboarding/reset', { resetData });
   }
 }
 

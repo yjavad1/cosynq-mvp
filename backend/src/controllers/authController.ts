@@ -56,6 +56,9 @@ export const register = async (req: Request, res: Response) => {
       lastName: user.lastName,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingSkipped: user.onboardingSkipped,
+      onboardingData: user.onboardingData,
       createdAt: user.createdAt
     };
 
@@ -65,7 +68,8 @@ export const register = async (req: Request, res: Response) => {
       data: {
         user: userResponse,
         token,
-        refreshToken
+        refreshToken,
+        requiresOnboarding: user.requiresOnboarding()
       }
     });
   } catch (error) {
@@ -116,6 +120,9 @@ export const login = async (req: Request, res: Response) => {
       lastName: user.lastName,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingSkipped: user.onboardingSkipped,
+      onboardingData: user.onboardingData,
       createdAt: user.createdAt
     };
 
@@ -125,7 +132,8 @@ export const login = async (req: Request, res: Response) => {
       data: {
         user: userResponse,
         token,
-        refreshToken
+        refreshToken,
+        requiresOnboarding: user.requiresOnboarding()
       }
     });
   } catch (error) {
@@ -154,12 +162,18 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
       lastName: user.lastName,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingSkipped: user.onboardingSkipped,
+      onboardingData: user.onboardingData,
       createdAt: user.createdAt
     };
 
     res.json({
       success: true,
-      data: { user: userResponse }
+      data: { 
+        user: userResponse,
+        requiresOnboarding: user.requiresOnboarding()
+      }
     });
   } catch (error) {
     console.error('Get profile error:', error);

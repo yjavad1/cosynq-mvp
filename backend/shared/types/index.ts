@@ -5,6 +5,20 @@ export interface User {
   lastName: string;
   role: 'admin' | 'member' | 'guest';
   isEmailVerified: boolean;
+  onboardingCompleted?: boolean;
+  onboardingSkipped?: boolean;
+  onboardingCompletedAt?: Date;
+  onboardingData?: {
+    companyName?: string;
+    industry?: string;
+    companySize?: string;
+    website?: string;
+    description?: string;
+    hasCreatedLocation?: boolean;
+    hasCreatedSpace?: boolean;
+    hasConfiguredPricing?: boolean;
+    completionSteps?: string[];
+  };
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -33,8 +47,18 @@ export interface AuthResponse {
     user: User;
     token: string;
     refreshToken: string;
+    requiresOnboarding?: boolean;
   };
   errors?: string[];
+}
+
+// Profile response type
+export interface ProfileResponse {
+  success: boolean;
+  data: {
+    user: User;
+    requiresOnboarding?: boolean;
+  };
 }
 
 export interface Space {

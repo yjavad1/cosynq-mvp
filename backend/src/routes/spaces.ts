@@ -9,11 +9,15 @@ import {
   getSpaceStats
 } from '../controllers/spaceController';
 import { authenticate } from '../middleware/auth';
+import { requireOnboarding } from '../middleware/onboarding';
 
 const router = express.Router();
 
 // Apply authentication middleware to all space routes
 router.use(authenticate);
+
+// Apply onboarding check to all space routes
+router.use(requireOnboarding);
 
 // Space CRUD operations
 router.post('/', createSpace);

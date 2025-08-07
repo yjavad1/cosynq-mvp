@@ -4,6 +4,7 @@ import contactRoutes from './contacts';
 import spaceRoutes from './spaces';
 import locationRoutes from './locations';
 import productTypeRoutes from './productTypes';
+import onboardingRoutes from './onboarding';
 
 const router = express.Router();
 
@@ -24,6 +25,9 @@ console.log('✅ Location routes registered at /api/locations');
 
 router.use('/product-types', productTypeRoutes);
 console.log('✅ Product Type routes registered at /api/product-types');
+
+router.use('/onboarding', onboardingRoutes);
+console.log('✅ Onboarding routes registered at /api/onboarding');
 
 router.get('/health', (req, res) => {
   res.json({ 
@@ -69,7 +73,11 @@ router.get('/health', (req, res) => {
       'GET /api/product-types/:id',
       'PUT /api/product-types/:id',
       'DELETE /api/product-types/:id',
-      'POST /api/product-types/:id/generate-spaces'
+      'POST /api/product-types/:id/generate-spaces',
+      'GET /api/onboarding/status',
+      'PUT /api/onboarding/data',
+      'POST /api/onboarding/complete',
+      'POST /api/onboarding/reset'
     ]
   });
 });

@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage'
 import { ContactsPage } from './pages/ContactsPage'
 import { SpacesPage } from './pages/SpacesPage'
 import { LocationsPage } from './pages/LocationsPage'
+import OnboardingPage from './pages/OnboardingPage'
 
 const queryClient = new QueryClient()
 
@@ -35,6 +36,15 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={false}>
                     <RegisterPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/onboarding" 
+                element={
+                  <ProtectedRoute skipOnboardingCheck={true}>
+                    <OnboardingPage />
                   </ProtectedRoute>
                 } 
               />

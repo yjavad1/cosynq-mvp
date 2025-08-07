@@ -6,14 +6,16 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAuth?: boolean;
   redirectTo?: string;
+  skipOnboardingCheck?: boolean;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
   requireAuth = true, 
-  redirectTo = '/login' 
+  redirectTo = '/login',
+  skipOnboardingCheck = false
 }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, requiresOnboarding } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -32,7 +34,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!requireAuth && isAuthenticated) {
+    // If user is authenticated but visiting login/register, redirect based on onboarding status
+    if (requiresOnboarding) {
+      return <Navigate to="/onboarding" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Check onboarding status for authenticated users
+  if (requireAuth && isAuthenticated && !skipOnboardingCheck && requiresOnboarding) {
+    // Don't redirect if already on onboarding page
+    if (location.pathname !== '/onboarding') {
+      return <Navigate to="/onboarding" replace />;
+    }
   }
 
   return <>{children}</>;

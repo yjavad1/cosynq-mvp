@@ -12,11 +12,15 @@ import {
   getConversationPrompts
 } from '../controllers/contactController';
 import { authenticate } from '../middleware/auth';
+import { requireOnboarding } from '../middleware/onboarding';
 
 const router = express.Router();
 
 // Apply authentication middleware to all contact routes
 router.use(authenticate);
+
+// Apply onboarding check to all contact routes
+router.use(requireOnboarding);
 
 // Contact CRUD operations
 router.post('/', createContact);
