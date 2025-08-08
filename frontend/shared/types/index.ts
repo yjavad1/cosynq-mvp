@@ -61,288 +61,12 @@ export interface ProfileResponse {
   };
 }
 
-export interface Space {
-  id: string;
-  organizationId: string;
-  locationId?: string;
-  productTypeId?: string;
-  name: string;
-  description: string;
-  type: 'Hot Desk' | 'Meeting Room' | 'Private Office';
-  status: 'Available' | 'Occupied' | 'Maintenance' | 'Out of Service' | 'Reserved' | 'Cleaning';
-  capacity: number;
-  area?: number;
-  floor?: string;
-  room?: string;
-  spaceCode?: string;
-  position?: {
-    coordinates?: {
-      x: number;
-      y: number;
-    };
-    zone?: string;
-    section?: string;
-  };
-  rates: {
-    hourly?: number;
-    daily?: number;
-    weekly?: number;
-    monthly?: number;
-    currency: string;
-  };
-  amenities: string[];
-  equipment: string[];
-  workingHours: Array<{
-    day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-    isOpen: boolean;
-    openTime?: string;
-    closeTime?: string;
-  }>;
-  isActive: boolean;
-  minimumBookingDuration: number;
-  maximumBookingDuration: number;
-  advanceBookingLimit: number;
-  allowSameDayBooking: boolean;
-  images?: string[];
-  stats?: {
-    totalBookings?: number;
-    totalBookingHours?: number;
-    averageBookingDuration?: number;
-    occupancyRate?: number;
-    revenue?: number;
-    lastBookingDate?: Date;
-    maintenanceScheduled?: Date;
-    customerRating?: number;
-  };
-  createdBy: string;
-  updatedBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Location {
-  id: string;
-  organizationId: string;
-  name: string;
-  description?: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  contact: {
-    phone?: string;
-    email?: string;
-    website?: string;
-  };
-  workingHours: Array<{
-    day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-    isOpen: boolean;
-    openTime?: string;
-    closeTime?: string;
-  }>;
-  amenities: string[];
-  capacity: {
-    totalSpaces: number;
-    totalDesks: number;
-    meetingRooms: number;
-    privateOffices: number;
-  };
-  isActive: boolean;
-  images?: string[];
-  stats?: {
-    totalSpaces?: number;
-    occupancyRate?: number;
-    totalRevenue?: number;
-    averageRating?: number;
-    totalBookings?: number;
-  };
-  createdBy: string;
-  updatedBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Contact {
-  id: string;
-  organizationId: string;
-  type: 'lead' | 'prospect' | 'member' | 'inactive' | 'churned';
-  firstName: string;
-  lastName: string;
-  fullName?: string;
-  email?: string;
-  phone?: string;
-  company?: string;
-  jobTitle?: string;
-  tags: string[];
-  status: 'active' | 'inactive';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  assignedTo?: string;
-  contextState: 'new' | 'qualified' | 'interested' | 'negotiating' | 'converted' | 'lost' | 'nurturing';
-  profileData?: {
-    industry?: string;
-    companySize?: string;
-    budget?: number;
-    requirements?: string[];
-    timeline?: string;
-    decisionMakers?: string[];
-    painPoints?: string[];
-  };
-  metadata?: {
-    totalInteractions?: number;
-    lastInteractionDate?: Date;
-    firstContactDate?: Date;
-    conversionDate?: Date;
-    source?: string;
-    referredBy?: string;
-    lifetimeValue?: number;
-    membershipHistory?: Array<{
-      startDate: Date;
-      endDate?: Date;
-      membershipType: string;
-      monthlyFee: number;
-    }>;
-  };
-  interactions: Array<{
-    id?: string;
-    type: 'call' | 'email' | 'meeting' | 'note' | 'tour' | 'ai_conversation';
-    subject?: string;
-    content: string;
-    timestamp: Date;
-    metadata?: {
-      aiModel?: string;
-      aiContext?: string;
-      duration?: number;
-      outcome?: string;
-      nextActions?: string[];
-    };
-  }>;
-  createdBy: string;
-  updatedBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export type ContextState = 'new' | 'qualified' | 'interested' | 'negotiating' | 'converted' | 'lost' | 'nurturing';
-
 // API Response interfaces
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
   errors?: string[];
-}
-
-export interface ContactsResponse {
-  contacts: Contact[];
-  totalCount: number;
-  currentPage: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-export interface ContactStats {
-  totalContacts: number;
-  activeContacts: number;
-  contactsByType: {
-    leads: number;
-    prospects: number;
-    members: number;
-    inactive: number;
-    churned: number;
-  };
-  contactsByContext: {
-    new: number;
-    qualified: number;
-    interested: number;
-    negotiating: number;
-    converted: number;
-    lost: number;
-    nurturing: number;
-  };
-  contactsByPriority: {
-    low: number;
-    medium: number;
-    high: number;
-    urgent: number;
-  };
-  recentActivity: {
-    newContactsThisWeek: number;
-    newContactsThisMonth: number;
-    conversionsThisWeek: number;
-    conversionsThisMonth: number;
-  };
-}
-
-export interface CreateContactData {
-  type: Contact['type'];
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  company?: string;
-  jobTitle?: string;
-  tags: string[];
-  priority: Contact['priority'];
-  assignedTo?: string;
-  contextState: ContextState;
-  profileData?: Contact['profileData'];
-}
-
-export interface SpacesResponse {
-  spaces: Space[];
-  totalCount: number;
-  currentPage: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-export interface SpaceStats {
-  totalSpaces: number;
-  activeSpaces: number;
-  spacesByType: {
-    'Hot Desk': number;
-    'Meeting Room': number;
-    'Private Office': number;
-  };
-  spacesByStatus: {
-    Available: number;
-    Occupied: number;
-    Maintenance: number;
-    'Out of Service': number;
-    Reserved: number;
-    Cleaning: number;
-  };
-  totalCapacity: number;
-  averageOccupancyRate?: number;
-  totalRevenue?: number;
-}
-
-export interface CreateSpaceData {
-  locationId?: string;
-  productTypeId?: string;
-  name: string;
-  description?: string;
-  type: Space['type'];
-  capacity: number;
-  area?: number;
-  floor?: string;
-  room?: string;
-  spaceCode?: string;
-  position?: Space['position'];
-  rates: Space['rates'];
-  amenities: string[];
-  equipment: string[];
-  workingHours: Space['workingHours'];
-  minimumBookingDuration?: number;
-  maximumBookingDuration?: number;
-  advanceBookingLimit?: number;
-  allowSameDayBooking?: boolean;
-  images?: string[];
 }
 
 export interface SpaceAvailability {
@@ -361,39 +85,6 @@ export interface SpaceAvailability {
     endTime: string;
     clientName?: string;
   }>;
-}
-
-export interface LocationsResponse {
-  locations: Location[];
-  totalCount: number;
-  currentPage: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-export interface LocationStats {
-  totalLocations: number;
-  activeLocations: number;
-  totalCapacity: number;
-  totalSpaces: number;
-  averageOccupancy?: number;
-  topPerformingLocation?: {
-    id: string;
-    name: string;
-    occupancyRate: number;
-  };
-}
-
-export interface CreateLocationData {
-  name: string;
-  description?: string;
-  address: Location['address'];
-  contact: Location['contact'];
-  workingHours: Location['workingHours'];
-  amenities: string[];
-  capacity: Location['capacity'];
-  images?: string[];
 }
 
 export interface LegacySpace {
@@ -418,4 +109,427 @@ export interface Booking {
   totalPrice: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Missing type exports for components
+export type SpaceType = 'Hot Desk' | 'Meeting Room' | 'Private Office';
+export type SpaceStatus = 'Available' | 'Occupied' | 'Maintenance' | 'Out of Service' | 'Reserved' | 'Cleaning';
+export type ContactType = 'Lead' | 'Member' | 'Prospect';
+export type ContextState = 'New' | 'Touring' | 'Negotiating' | 'Active' | 'Inactive' | 'Churned';
+
+export interface WorkingHours {
+  day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+}
+
+export type AmenityType = 
+  | 'WiFi' 
+  | 'AC' 
+  | 'Parking' 
+  | 'Coffee' 
+  | 'Security' 
+  | 'Reception' 
+  | 'Kitchen' 
+  | 'Printer' 
+  | 'Scanner' 
+  | 'Whiteboard' 
+  | 'Projector' 
+  | 'Conference_Room' 
+  | 'Phone_Booth' 
+  | 'Lounge' 
+  | 'Gym' 
+  | 'Shower' 
+  | 'Bike_Storage' 
+  | 'Mail_Service' 
+  | 'Cleaning_Service' 
+  | 'Catering' 
+  | 'Event_Space' 
+  | 'Terrace' 
+  | 'Garden' 
+  | 'Handicap_Accessible';
+
+// Setup Wizard Types
+export type SetupStep = 'company' | 'locations' | 'spaces' | 'pricing' | 'launch';
+
+export interface CompanyProfile {
+  companyName: string;
+  industry: string;
+  companySize: string;
+  logo?: string;
+  website?: string;
+  description?: string;
+}
+
+export interface SpaceTypeConfig {
+  id: string;
+  name: string;
+  description: string;
+  category: 'hot-desk' | 'cabin' | 'meeting-room' | 'event-space';
+  defaultCapacity: number;
+  amenities: AmenityType[];
+  defaultPricing: {
+    hourly?: number;
+    daily?: number;
+    monthly?: number;
+  };
+  isActive: boolean;
+}
+
+export interface PricingRule {
+  id: string;
+  name: string;
+  spaceTypeId: string;
+  tiers: Array<{
+    name: string;
+    minHours: number;
+    maxHours?: number;
+    hourlyRate: number;
+    discountPercent?: number;
+  }>;
+  isActive: boolean;
+}
+
+export interface SetupProgress {
+  currentStep: SetupStep;
+  completedSteps: SetupStep[];
+  companyProfile?: CompanyProfile;
+  locations: Location[];
+  spaceTypes: SpaceTypeConfig[];
+  pricingRules: PricingRule[];
+  isCompleted: boolean;
+  completionPercentage: number;
+}
+
+export interface SetupWizardProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+  initialStep?: SetupStep;
+}
+
+// Location Management Types
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface OperatingHours {
+  day: DayOfWeek;
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+  isHoliday?: boolean;
+  notes?: string;
+}
+
+export interface LocationContact {
+  type: 'phone' | 'email' | 'whatsapp' | 'emergency';
+  value: string;
+  isPrimary?: boolean;
+  label?: string;
+}
+
+export interface LocationAddress {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  landmark?: string;
+  floor?: string;
+  unitNumber?: string;
+}
+
+// Updated Location interface with proper structure
+export interface Location {
+  _id: string;
+  organizationId: string;
+  name: string;
+  description?: string;
+  code: string;
+  address: LocationAddress;
+  contacts: LocationContact[];
+  operatingHours: OperatingHours[];
+  timezone: string;
+  amenities: AmenityType[];
+  totalFloors?: number;
+  totalCapacity?: number;
+  isActive: boolean;
+  allowSameDayBooking: boolean;
+  defaultBookingRules?: {
+    minimumBookingDuration: number;
+    maximumBookingDuration: number;
+    advanceBookingLimit: number;
+    cancellationPolicy?: string;
+  };
+  images?: string[];
+  virtualTourUrl?: string;
+  managerId?: User;
+  staff?: User[];
+  stats?: {
+    totalSpaces?: number;
+    totalBookingsToday?: number;
+    currentOccupancy?: number;
+    lastMaintenanceDate?: Date;
+  };
+  createdBy: User;
+  updatedBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateLocationData {
+  name: string;
+  description?: string;
+  code: string;
+  address: LocationAddress;
+  contacts: LocationContact[];
+  operatingHours: OperatingHours[];
+  timezone?: string;
+  amenities?: AmenityType[];
+  totalFloors?: number;
+  totalCapacity?: number;
+  isActive?: boolean;
+  allowSameDayBooking?: boolean;
+  defaultBookingRules?: {
+    minimumBookingDuration?: number;
+    maximumBookingDuration?: number;
+    advanceBookingLimit?: number;
+    cancellationPolicy?: string;
+  };
+  images?: string[];
+  virtualTourUrl?: string;
+  managerId?: string;
+  staff?: string[];
+}
+
+// Update LocationsResponse to include pagination
+export interface LocationsResponse {
+  locations: Location[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface LocationStats {
+  totalLocations: number;
+  activeLocations: number;
+  inactiveLocations: number;
+  locationsByCity: Array<{ city: string; count: number }>;
+  topAmenities: Array<{ amenity: AmenityType; count: number }>;
+  recentLocations: Array<{
+    _id: string;
+    name: string;
+    code: string;
+    address: { city: string };
+    createdAt: Date;
+  }>;
+}
+
+// Update Space interface with proper _id and structure
+export interface Space {
+  _id: string;
+  organizationId: string;
+  locationId?: string;
+  name: string;
+  description?: string;
+  type: SpaceType;
+  status: SpaceStatus;
+  capacity: number;
+  area?: number;
+  floor?: string;
+  room?: string;
+  rates: {
+    hourly?: number;
+    daily?: number;
+    weekly?: number;
+    monthly?: number;
+    currency: string;
+  };
+  amenities: string[];
+  equipment: string[];
+  workingHours: WorkingHours[];
+  isActive: boolean;
+  minimumBookingDuration: number;
+  maximumBookingDuration: number;
+  advanceBookingLimit: number;
+  allowSameDayBooking: boolean;
+  images?: string[];
+  createdBy: User;
+  updatedBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateSpaceData {
+  name: string;
+  description?: string;
+  type: SpaceType;
+  status?: SpaceStatus;
+  capacity: number;
+  area?: number;
+  floor?: string;
+  room?: string;
+  rates: {
+    hourly?: number;
+    daily?: number;
+    weekly?: number;
+    monthly?: number;
+    currency: string;
+  };
+  amenities?: string[];
+  equipment?: string[];
+  workingHours: WorkingHours[];
+  isActive?: boolean;
+  minimumBookingDuration?: number;
+  maximumBookingDuration?: number;
+  advanceBookingLimit?: number;
+  allowSameDayBooking?: boolean;
+  images?: string[];
+}
+
+// Update SpacesResponse to include pagination
+export interface SpacesResponse {
+  spaces: Space[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalSpaces: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface SpaceStats {
+  totalSpaces: number;
+  spacesByType: Array<{ _id: SpaceType; count: number }>;
+  spacesByStatus: Array<{ _id: SpaceStatus; count: number }>;
+  totalCapacity: number;
+  averageRates: {
+    avgHourly: number;
+    avgDaily: number;
+  };
+}
+
+// Contact interfaces
+export interface ContactInteraction {
+  _id: string;
+  type: 'call' | 'email' | 'meeting' | 'note' | 'tour' | 'ai_conversation';
+  subject?: string;
+  content: string;
+  metadata?: {
+    aiModel?: string;
+    aiContext?: string;
+    duration?: number;
+    outcome?: string;
+    nextActions?: string[];
+  };
+  createdBy: User;
+  createdAt: Date;
+}
+
+export interface Contact {
+  _id: string;
+  organizationId: string;
+  type: ContactType;
+  contextState: ContextState;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
+  tags: string[];
+  aiContext: {
+    preferences: string[];
+    interests: string[];
+    painPoints: string[];
+    budget?: {
+      min?: number;
+      max?: number;
+      currency: string;
+    };
+    spaceRequirements: string[];
+    lastContextUpdate: Date;
+  };
+  interactions: ContactInteraction[];
+  leadSource?: string;
+  assignedTo?: User;
+  membership?: {
+    planType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    monthlyRate?: number;
+  };
+  priority: 'low' | 'medium' | 'high';
+  createdBy: User;
+  updatedBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateContactData {
+  type: ContactType;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
+  tags?: string[];
+  leadSource?: string;
+  assignedTo?: string;
+  priority?: 'low' | 'medium' | 'high';
+  aiContext?: {
+    preferences?: string[];
+    interests?: string[];
+    painPoints?: string[];
+    budget?: {
+      min?: number;
+      max?: number;
+      currency?: string;
+    };
+    spaceRequirements?: string[];
+  };
+}
+
+export interface ContactsResponse {
+  contacts: Contact[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalContacts: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface ContactStats {
+  totalContacts: number;
+  contactsByType: Array<{ _id: ContactType; count: number }>;
+  contactsByState: Array<{ _id: ContextState; count: number }>;
+  contactsByPriority: Array<{ _id: string; count: number }>;
+  recentInteractions: ContactInteraction[];
 }

@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, Building, MapPin, Grid3X3, DollarSign, Rocket } from 'lucide-react';
+import { CheckCircle, Building, MapPin, Grid3X3, DollarSign, Rocket } from 'lucide-react';
 import { SetupStep } from '@shared/types';
 import { useLocationStats } from '../../hooks/useLocations';
 import { useSpaceStats } from '../../hooks/useSpaces';

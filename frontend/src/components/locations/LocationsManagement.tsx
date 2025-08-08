@@ -206,7 +206,6 @@ function LocationCard({ location, onEdit, onDelete, onView }: LocationCardProps)
 }
 
 export function LocationsManagement({ 
-  organizationId, 
   showHeader = true, 
   maxDisplayed 
 }: LocationsManagementProps) {

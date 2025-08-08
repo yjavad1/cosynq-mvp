@@ -442,7 +442,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{spaceType.description}</p>
                     <div className="flex items-center space-x-2">
-                      {spaceType.amenities.slice(0, 3).map((amenity) => (
+                      {spaceType.amenities.slice(0, 3).map((amenity: string) => (
                         <span key={amenity} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           {amenity}
                         </span>
@@ -530,7 +530,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
 
               <div className="border border-gray-200 rounded-lg p-4">
                 <h4 className="font-medium text-gray-900 mb-2">Locations ({locationStats?.totalLocations || 0})</h4>
-                {locationStats?.recentLocations?.slice(0, 2).map((location) => (
+                {locationStats?.recentLocations?.slice(0, 2).map((location: any) => (
                   <p key={location._id} className="text-sm text-gray-600">
                     {location.name} - {location.address.city}
                   </p>
