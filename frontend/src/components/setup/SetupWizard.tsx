@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { 
   X, 
   ChevronLeft, 
@@ -17,13 +17,10 @@ import {
   SetupStep, 
   CompanyProfile, 
   SetupWizardProps,
-  CreateLocationData,
-  SpaceTypeConfig,
-  PricingRule,
-  AmenityType 
+  SpaceTypeConfig
 } from '@shared/types';
 import { LocationForm } from '../locations/LocationForm';
-import { useCreateLocation, useLocationStats } from '../../hooks/useLocations';
+import { useLocationStats } from '../../hooks/useLocations';
 
 const steps: Array<{ key: SetupStep; title: string; description: string; icon: React.ComponentType<any> }> = [
   { 
@@ -113,21 +110,16 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
   const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep);
   const [completedSteps, setCompletedSteps] = useState<SetupStep[]>([]);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
-  const [locations, setLocations] = useState<CreateLocationData[]>([]);
   const [spaceTypes, setSpaceTypes] = useState<SpaceTypeConfig[]>([]);
-  const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
   const [isLocationFormOpen, setIsLocationFormOpen] = useState(false);
   const [expectedLocations, setExpectedLocations] = useState<number>(1);
 
-  const createLocation = useCreateLocation();
   const { data: locationStats } = useLocationStats();
 
   const {
     register: registerCompany,
-    handleSubmit: handleCompanySubmit,
     formState: { errors: companyErrors, isValid: isCompanyValid },
-    watch: watchCompany,
-    reset: resetCompany
+    watch: watchCompany
   } = useForm<CompanyProfile>({
     defaultValues: {
       companyName: '',
@@ -537,14 +529,17 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
               </div>
 
               <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Locations ({locations.length})</h4>
-                {locations.slice(0, 2).map((location, index) => (
-                  <p key={index} className="text-sm text-gray-600">
-                    {location.name} - {location.address.city}, {location.address.state}
+                <h4 className="font-medium text-gray-900 mb-2">Locations ({locationStats?.totalLocations || 0})</h4>
+                {locationStats?.recentLocations?.slice(0, 2).map((location) => (
+                  <p key={location._id} className="text-sm text-gray-600">
+                    {location.name} - {location.address.city}
                   </p>
                 ))}
-                {locations.length > 2 && (
-                  <p className="text-sm text-gray-500">+{locations.length - 2} more locations</p>
+                {(locationStats?.totalLocations || 0) > 2 && (
+                  <p className="text-sm text-gray-500">+{(locationStats?.totalLocations || 0) - 2} more locations</p>
+                )}
+                {!locationStats?.totalLocations && (
+                  <p className="text-sm text-gray-500">No locations added yet</p>
                 )}
               </div>
 
