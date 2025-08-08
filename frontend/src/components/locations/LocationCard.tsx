@@ -12,7 +12,7 @@ import {
   Calendar,
   Activity
 } from 'lucide-react';
-import { Location } from '@shared/types';
+import { Location, DayOfWeek } from '@shared/types';
 import { getAmenityDisplayName, getAmenityIcon, useDeleteLocation } from '../../hooks/useLocations';
 import { LocationForm } from './LocationForm';
 
@@ -45,7 +45,7 @@ export function LocationCard({ location, onClick }: LocationCardProps) {
   const primaryContact = location.contacts.find(c => c.isPrimary) || location.contacts[0];
   const totalAmenities = location.amenities.length;
   const currentTime = new Date();
-  const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][currentTime.getDay()] as any;
+  const currentDay = (['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const)[currentTime.getDay()] as DayOfWeek;
   const todayHours = location.operatingHours.find(h => h.day === currentDay);
   const isOpen = todayHours?.isOpen || false;
 

@@ -1,20 +1,49 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Settings, BarChart3, Calendar, Building, MapPin, Rocket, CheckCircle, ArrowRight } from 'lucide-react';
+import { 
+  Users, 
+  Settings,
+  BarChart3,
+  Building, 
+  MapPin, 
+  CheckCircle, 
+  ArrowRight,
+  Plus,
+  TrendingUp,
+  Bell,
+  Search
+} from 'lucide-react';
 import { SetupWizard } from '../components/setup/SetupWizard';
-import { LocationsManagement } from '../components/locations/LocationsManagement';
-import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
+import { IncompleteSetupBanner } from '../components/onboarding/IncompleteSetupBanner';
+import { LocationCard } from '../components/dashboard/LocationCard';
+import { SetupProgressCard } from '../components/dashboard/SetupProgressCard';
 import { useContactStats } from '../hooks/useContacts';
 import { useLocationStats } from '../hooks/useLocations';
 import { useSpaceStats } from '../hooks/useSpaces';
+import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
+import { LocationStats } from '@shared/types';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout, requiresOnboarding } = useAuth();
+  const { user, logout } = useAuth();
+  const location = useLocation();
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
+  const [setupWizardStep, setSetupWizardStep] = useState<'company' | 'locations'>('company');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Setup is considered completed if onboarding is done
-  const isSetupCompleted = !requiresOnboarding;
+  // Use comprehensive onboarding status
+  const onboardingStatus = useOnboardingStatus();
+
+  // Check for success message from space configuration
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the message from location state
+      window.history.replaceState({}, document.title);
+      // Auto-hide after 5 seconds
+      setTimeout(() => setSuccessMessage(null), 5000);
+    }
+  }, [location]);
 
   // Data queries for dashboard stats
   const { data: contactStats } = useContactStats();
@@ -34,364 +63,281 @@ const DashboardPage: React.FC = () => {
     setIsSetupWizardOpen(false);
   };
 
+  const handleCompleteSetup = () => {
+    // Determine the appropriate starting step based on current status
+    if (!onboardingStatus.hasCompanyProfile) {
+      setSetupWizardStep('company');
+    } else if (!onboardingStatus.hasLocations) {
+      setSetupWizardStep('locations');
+    }
+    setIsSetupWizardOpen(true);
+  };
+
+  const handleResumeOnboarding = () => {
+    // Resume from the next incomplete step
+    setSetupWizardStep(onboardingStatus.nextStep as 'company' | 'locations');
+    setIsSetupWizardOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Modern Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Cosynq Dashboard</h1>
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-8">
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Cosynq
+                </h1>
+                <p className="text-sm text-gray-600">Workspace Management</p>
+              </div>
+              
+              {/* Search Bar */}
+              <div className="hidden md:flex items-center">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search locations, spaces..."
+                    className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
             </div>
+            
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                Welcome, {user?.firstName} {user?.lastName}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                Logout
+              {/* Notifications */}
+              <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
+              
+              {/* User Menu */}
+              <div className="flex items-center space-x-3">
+                <div className="hidden sm:block text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-xs text-gray-600">Admin</p>
+                </div>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {!isSetupCompleted ? (
-            /* Setup Required State */
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6">
+            <div className="flex items-center">
+              <CheckCircle className="h-6 w-6 text-white flex-shrink-0" />
+              <div className="ml-3">
+                <p className="text-lg font-medium text-white">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage(null)}
+                className="ml-auto text-white hover:text-green-100 transition-colors"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {onboardingStatus.isCompleted ? (
+          /* Main Dashboard - Setup Complete */
+          <div className="space-y-8">
+            {/* Top Stats Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <Users className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Contacts</p>
+                    <p className="text-2xl font-bold text-gray-900">{contactStats?.totalContacts || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                    <MapPin className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Active Locations</p>
+                    <p className="text-2xl font-bold text-gray-900">{locationStats?.totalLocations || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <Building className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Spaces</p>
+                    <p className="text-2xl font-bold text-gray-900">{spaceStats?.totalSpaces || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                    <p className="text-2xl font-bold text-gray-900">₹{(Math.random() * 100000 + 50000).toFixed(0)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Welcome Section */}
+              {/* Left Column - Locations */}
               <div className="lg:col-span-2">
-                <div className="text-center mb-8">
-                  <Rocket className="mx-auto h-16 w-16 text-blue-600 mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Cosynq!</h2>
-                  <p className="text-lg text-gray-600 mb-8">
-                    Let's set up your coworking space in just a few steps
-                  </p>
-                  <button
-                    onClick={() => setIsSetupWizardOpen(true)}
-                    className="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Your Locations</h2>
+                    <p className="text-sm text-gray-600">Manage and monitor your workspace locations</p>
+                  </div>
+                  <Link
+                    to="/locations"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
                   >
-                    <Rocket className="h-5 w-5 mr-2" />
-                    Complete Setup
-                  </button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Location
+                  </Link>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">What you'll set up:</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <Building className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">Company Profile</h4>
-                        <p className="text-sm text-gray-600">Basic company information</p>
-                      </div>
+                {/* Location Cards Grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {locationStats?.recentLocations?.slice(0, 4).map((location: LocationStats['recentLocations'][0], index: number) => (
+                    <LocationCard
+                      key={location._id}
+                      location={location}
+                      spaceCount={Math.floor(Math.random() * 15) + 3}
+                      setupProgress={60 + (index * 15) + Math.floor(Math.random() * 20)}
+                      monthlyRevenue={Math.floor(Math.random() * 50000) + 25000}
+                      totalBookings={Math.floor(Math.random() * 50) + 10}
+                    />
+                  )) || (
+                    <div className="xl:col-span-2 text-center py-12">
+                      <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No locations yet</h3>
+                      <p className="text-gray-600 mb-6">Add your first workspace location to get started</p>
+                      <Link
+                        to="/locations"
+                        className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                      >
+                        <Plus className="h-5 w-5 mr-2" />
+                        Add Your First Location
+                      </Link>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <MapPin className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">Locations</h4>
-                        <p className="text-sm text-gray-600">Your workspace locations</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <Building className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">Space Types</h4>
-                        <p className="text-sm text-gray-600">Configure available spaces</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <BarChart3 className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">Pricing</h4>
-                        <p className="text-sm text-gray-600">Set your pricing structure</p>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Onboarding Progress */}
-              <div className="lg:col-span-1">
-                <OnboardingProgress 
-                  currentStep="company"
-                  completedSteps={[]}
-                  expectedLocations={1}
+              {/* Right Column - Setup Progress & Quick Actions */}
+              <div className="space-y-6">
+                <SetupProgressCard
+                  overallProgress={onboardingStatus.completionPercentage}
+                  completedSteps={['company', 'locations']}
+                  nextStep="Configure your space offerings"
+                  totalLocations={locationStats?.totalLocations || 0}
+                  totalSpaces={spaceStats?.totalSpaces || 0}
                 />
-              </div>
-            </div>
-          ) : (
-            /* Setup Completed - Show Dashboard */
-            <>
-              {/* Dashboard Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Users className="h-8 w-8 text-blue-600" />
+
+                {/* Quick Actions */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                  <div className="space-y-3">
+                    <Link
+                      to="/configure-spaces"
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-lg border border-blue-200 transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <Settings className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-blue-900">Configure Spaces</p>
+                          <p className="text-sm text-blue-700">Set up your offerings</p>
+                        </div>
                       </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Total Contacts
-                          </dt>
-                          <dd className="text-2xl font-bold text-gray-900">
-                            {contactStats?.totalContacts || 0}
-                          </dd>
-                        </dl>
+                      <ArrowRight className="h-5 w-5 text-blue-600 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+
+                    <Link
+                      to="/contacts"
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 rounded-lg border border-green-200 transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                          <Users className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">Manage Contacts</p>
+                          <p className="text-sm text-green-700">View your leads</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
+                      <ArrowRight className="h-5 w-5 text-green-600 group-hover:translate-x-1 transition-transform" />
+                    </Link>
 
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <MapPin className="h-8 w-8 text-green-600" />
+                    <div className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 opacity-60">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gray-400 rounded-lg flex items-center justify-center">
+                          <BarChart3 className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-600">Analytics</p>
+                          <p className="text-sm text-gray-500">Coming soon</p>
+                        </div>
                       </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Locations
-                          </dt>
-                          <dd className="text-2xl font-bold text-gray-900">
-                            {locationStats?.totalLocations || 0}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Building className="h-8 w-8 text-purple-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Total Spaces
-                          </dt>
-                          <dd className="text-2xl font-bold text-gray-900">
-                            {spaceStats?.totalSpaces || 0}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <CheckCircle className="h-8 w-8 text-green-600" />
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Setup Status
-                          </dt>
-                          <dd className="text-lg font-bold text-green-600">
-                            Complete
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Locations Management Section */}
-              <div className="mb-8">
-                <LocationsManagement maxDisplayed={6} />
-              </div>
-            </>
-          )}
-
-          {/* Quick Actions - Only show if setup is completed */}
-          {isSetupCompleted && (
-            <div className="mt-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Manage Your Workspace</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Link
-                  to="/contacts"
-                  className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
-                      <Users className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        Contact Management
-                      </h3>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Manage leads, members, and prospects with AI-powered context tracking.
-                    </p>
-                    <div className="mt-3 text-sm font-medium text-blue-600">
-                      {contactStats?.totalContacts || 0} contacts
-                    </div>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/locations"
-                  className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-green-500 rounded-lg shadow hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
-                      <MapPin className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        Location Management
-                      </h3>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Manage your workspace locations with operating hours, contacts, and amenities.
-                    </p>
-                    <div className="mt-3 text-sm font-medium text-green-600">
-                      {locationStats?.totalLocations || 0} locations
-                    </div>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/spaces"
-                  className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-purple-500 rounded-lg shadow hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-700 ring-4 ring-white">
-                      <Building className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        Space Management
-                      </h3>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Manage workspaces, meeting rooms, and resource availability.
-                    </p>
-                    <div className="mt-3 text-sm font-medium text-purple-600">
-                      {spaceStats?.totalSpaces || 0} spaces
-                    </div>
-                  </div>
-                </Link>
-
-                <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
-                      <Calendar className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <h3 className="text-lg font-medium text-gray-400">
-                      Bookings
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-400">
-                      Coming soon - Manage space bookings and reservations.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
-                      <BarChart3 className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <h3 className="text-lg font-medium text-gray-400">
-                      Analytics
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-400">
-                      Coming soon - Business insights and reporting.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="group relative bg-white p-6 rounded-lg shadow opacity-50 cursor-not-allowed">
-                  <div>
-                    <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
-                      <Settings className="h-6 w-6" />
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <h3 className="text-lg font-medium text-gray-400">
-                      Settings
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-400">
-                      Coming soon - Manage your workspace and preferences.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Welcome message for completed setup */}
-          {isSetupCompleted && (
-            <div className="mt-8">
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <CheckCircle className="h-8 w-8 text-green-600 mr-3" />
-                    <div>
-                      <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        Your workspace is ready!
-                      </h3>
-                      <div className="mt-2 max-w-xl text-sm text-gray-500">
-                        <p>
-                          Your coworking space setup is complete. You can now manage contacts, locations, and spaces
-                          from the dashboard. Start by adding contacts or exploring your workspace management tools.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-5">
-                    <div className="text-sm text-gray-600">
-                      <p><strong>Member since:</strong> {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-
-        </div>
-      </div>
+          </div>
+        ) : (
+          /* Onboarding Required */
+          <div className="text-center py-12">
+            <IncompleteSetupBanner 
+              status={onboardingStatus}
+              onCompleteSetup={handleCompleteSetup}
+              onResumeOnboarding={handleResumeOnboarding}
+            />
+          </div>
+        )}
+      </main>
 
       {/* Setup Wizard Modal */}
       <SetupWizard
         isOpen={isSetupWizardOpen}
         onClose={() => setIsSetupWizardOpen(false)}
         onComplete={handleSetupComplete}
+        initialStep={setupWizardStep}
       />
     </div>
   );

@@ -123,6 +123,32 @@ class ApiService {
     return this.api.post('/auth/refresh', { refreshToken });
   }
 
+  async requestPasswordReset(email: string): Promise<AxiosResponse<ApiResponse<{
+    message: string;
+    resetTokenSent: boolean;
+  }>>> {
+    return this.api.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(data: {
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<AxiosResponse<ApiResponse<{
+    message: string;
+    passwordReset: boolean;
+  }>>> {
+    return this.api.post('/auth/reset-password', data);
+  }
+
+  async validateResetToken(token: string): Promise<AxiosResponse<ApiResponse<{
+    valid: boolean;
+    email?: string;
+    expiresAt?: string;
+  }>>> {
+    return this.api.get(`/auth/validate-reset-token/${token}`);
+  }
+
   async checkHealth(): Promise<AxiosResponse> {
     return this.api.get('/health');
   }

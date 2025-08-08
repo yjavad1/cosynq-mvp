@@ -7,20 +7,17 @@ import {
   ChevronRight, 
   Building, 
   MapPin, 
-  Grid3X3, 
-  DollarSign, 
   Rocket,
-  CheckCircle,
-  AlertCircle
+  CheckCircle
 } from 'lucide-react';
 import { 
   SetupStep, 
   CompanyProfile, 
-  SetupWizardProps,
-  SpaceTypeConfig
+  SetupWizardProps
 } from '@shared/types';
 import { LocationForm } from '../locations/LocationForm';
 import { useLocationStats } from '../../hooks/useLocations';
+import { useAuth } from '../../contexts/AuthContext';
 
 const steps: Array<{ key: SetupStep; title: string; description: string; icon: React.ComponentType<any> }> = [
   { 
@@ -36,21 +33,9 @@ const steps: Array<{ key: SetupStep; title: string; description: string; icon: R
     icon: MapPin
   },
   { 
-    key: 'spaces', 
-    title: 'Configure Spaces', 
-    description: 'Define your space types',
-    icon: Grid3X3
-  },
-  { 
-    key: 'pricing', 
-    title: 'Pricing Rules', 
-    description: 'Set up your pricing structure',
-    icon: DollarSign
-  },
-  { 
     key: 'launch', 
-    title: 'Go Live', 
-    description: 'Review and launch your workspace',
+    title: 'Launch', 
+    description: 'Complete your setup',
     icon: Rocket
   },
 ];
@@ -76,50 +61,22 @@ const companySizes = [
   '1000+ employees'
 ];
 
-const defaultSpaceTypes: Omit<SpaceTypeConfig, 'id'>[] = [
-  {
-    name: 'Hot Desk',
-    description: 'Flexible workspace that can be used by anyone',
-    category: 'hot-desk',
-    defaultCapacity: 1,
-    amenities: ['WiFi', 'AC', 'Coffee'],
-    defaultPricing: { hourly: 15, daily: 80, monthly: 1500 },
-    isActive: true
-  },
-  {
-    name: 'Private Office',
-    description: 'Dedicated office space for teams',
-    category: 'cabin',
-    defaultCapacity: 4,
-    amenities: ['WiFi', 'AC', 'Phone_Booth', 'Printer'],
-    defaultPricing: { hourly: 50, daily: 300, monthly: 6000 },
-    isActive: true
-  },
-  {
-    name: 'Meeting Room',
-    description: 'Conference room for meetings and presentations',
-    category: 'meeting-room',
-    defaultCapacity: 8,
-    amenities: ['WiFi', 'AC', 'Projector', 'Whiteboard'],
-    defaultPricing: { hourly: 25, daily: 150 },
-    isActive: true
-  }
-];
 
 export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'company' }: SetupWizardProps) {
   const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep);
   const [completedSteps, setCompletedSteps] = useState<SetupStep[]>([]);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
-  const [spaceTypes, setSpaceTypes] = useState<SpaceTypeConfig[]>([]);
   const [isLocationFormOpen, setIsLocationFormOpen] = useState(false);
   const [expectedLocations, setExpectedLocations] = useState<number>(1);
 
+  const { user } = useAuth();
   const { data: locationStats } = useLocationStats();
 
   const {
     register: registerCompany,
     formState: { errors: companyErrors, isValid: isCompanyValid },
-    watch: watchCompany
+    watch: watchCompany,
+    reset: resetCompanyForm
   } = useForm<CompanyProfile>({
     defaultValues: {
       companyName: '',
@@ -129,14 +86,37 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
     }
   });
 
+
+  // Reset to initial step when wizard opens
   useEffect(() => {
-    if (spaceTypes.length === 0) {
-      setSpaceTypes(defaultSpaceTypes.map((type, index) => ({
-        ...type,
-        id: `default-${index}`
-      })));
+    if (isOpen) {
+      setCurrentStep(initialStep);
     }
-  }, []);
+  }, [isOpen, initialStep]);
+
+  // Prefill company profile if user already has onboarding data
+  useEffect(() => {
+    if (user?.onboardingData && isOpen) {
+      const existingData = {
+        companyName: user.onboardingData.companyName || '',
+        industry: user.onboardingData.industry || '',
+        companySize: user.onboardingData.companySize || '',
+        description: user.onboardingData.description || '',
+        website: user.onboardingData.website || ''
+      };
+      
+      // Only prefill if we have some company data
+      if (existingData.companyName || existingData.industry || existingData.companySize) {
+        resetCompanyForm(existingData);
+        setCompanyProfile(existingData);
+        
+        // Mark company step as completed if we have basic info
+        if (existingData.companyName && existingData.industry && existingData.companySize) {
+          setCompletedSteps(prev => prev.includes('company') ? prev : [...prev, 'company']);
+        }
+      }
+    }
+  }, [user, isOpen, resetCompanyForm]);
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
   const isFirstStep = currentStepIndex === 0;
@@ -148,10 +128,6 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
         return isCompanyValid && watchCompany('companyName') && watchCompany('industry') && watchCompany('companySize');
       case 'locations':
         return (locationStats?.totalLocations || 0) >= expectedLocations;
-      case 'spaces':
-        return spaceTypes.filter(st => st.isActive).length > 0;
-      case 'pricing':
-        return true; // Pricing is optional
       case 'launch':
         return true;
       default:
@@ -198,11 +174,6 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
     }
   };
 
-  const handleSpaceTypeToggle = (id: string) => {
-    setSpaceTypes(prev => prev.map(st => 
-      st.id === id ? { ...st, isActive: !st.isActive } : st
-    ));
-  };
 
   const handleFinishSetup = async () => {
     // Mark setup as completed
@@ -408,107 +379,6 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
           </div>
         );
 
-      case 'spaces':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Space Types</h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Configure the types of spaces you want to offer. You can customize these later.
-              </p>
-
-              <div className="space-y-4">
-                {spaceTypes.map((spaceType) => (
-                  <div 
-                    key={spaceType.id} 
-                    className={`border rounded-lg p-4 ${spaceType.isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={spaceType.isActive}
-                          onChange={() => handleSpaceTypeToggle(spaceType.id)}
-                          className="text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
-                        />
-                        <h4 className="font-medium text-gray-900">{spaceType.name}</h4>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span>Capacity: {spaceType.defaultCapacity}</span>
-                        {spaceType.defaultPricing.hourly && (
-                          <span>₹{spaceType.defaultPricing.hourly}/hr</span>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">{spaceType.description}</p>
-                    <div className="flex items-center space-x-2">
-                      {spaceType.amenities.slice(0, 3).map((amenity: string) => (
-                        <span key={amenity} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {amenity}
-                        </span>
-                      ))}
-                      {spaceType.amenities.length > 3 && (
-                        <span className="text-xs text-gray-500">+{spaceType.amenities.length - 3} more</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'pricing':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Pricing Configuration</h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Your default pricing is set based on your space types. You can customize pricing rules later.
-              </p>
-
-              <div className="space-y-4">
-                {spaceTypes.filter(st => st.isActive).map((spaceType) => (
-                  <div key={spaceType.id} className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-2">{spaceType.name}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {spaceType.defaultPricing.hourly && (
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">₹{spaceType.defaultPricing.hourly}</div>
-                          <div className="text-sm text-gray-600">per hour</div>
-                        </div>
-                      )}
-                      {spaceType.defaultPricing.daily && (
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">₹{spaceType.defaultPricing.daily}</div>
-                          <div className="text-sm text-gray-600">per day</div>
-                        </div>
-                      )}
-                      {spaceType.defaultPricing.monthly && (
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">₹{spaceType.defaultPricing.monthly}</div>
-                          <div className="text-sm text-gray-600">per month</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex">
-                  <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div className="ml-3">
-                    <h4 className="text-sm font-medium text-blue-800">Pricing Customization</h4>
-                    <p className="text-sm text-blue-700 mt-1">
-                      You can create advanced pricing rules, discounts, and tiers from your dashboard after completing the setup.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
 
       case 'launch':
         return (
@@ -517,7 +387,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
               <Rocket className="mx-auto h-16 w-16 text-blue-600 mb-4" />
               <h3 className="text-xl font-medium text-gray-900 mb-4">Ready to Launch!</h3>
               <p className="text-gray-600 mb-8">
-                Your workspace is configured and ready to go. Review your setup below.
+                Your workspace is set up and ready to go. Review your setup below.
               </p>
             </div>
 
@@ -542,15 +412,16 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
                   <p className="text-sm text-gray-500">No locations added yet</p>
                 )}
               </div>
+            </div>
 
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Active Space Types ({spaceTypes.filter(st => st.isActive).length})</h4>
-                <div className="flex flex-wrap gap-2">
-                  {spaceTypes.filter(st => st.isActive).map((spaceType) => (
-                    <span key={spaceType.id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {spaceType.name}
-                    </span>
-                  ))}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex">
+                <Rocket className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-800">What's Next?</h4>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Configure your space offerings, pricing, and advanced settings on your dashboard.
+                  </p>
                 </div>
               </div>
             </div>
@@ -561,7 +432,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
                 <div className="ml-3">
                   <h4 className="text-sm font-medium text-green-800">Setup Complete</h4>
                   <p className="text-sm text-green-700 mt-1">
-                    Click "Launch Workspace" to complete the setup and start managing your coworking space.
+                    Click "Launch Workspace" to access your dashboard and start managing your coworking space.
                   </p>
                 </div>
               </div>
@@ -725,7 +596,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
           onSuccess={handleLocationSuccess}
           isOnboarding={true}
           onOnboardingNext={() => {
-            setCurrentStep('spaces');
+            setCurrentStep('launch');
             setIsLocationFormOpen(false);
           }}
         />

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, LoginCredentials, RegisterCredentials } from '@shared/types';
 import { apiService } from '../services/api';
+import { getErrorMessage } from '../utils/errorHandling';
 
 interface AuthState {
   user: User | null;
@@ -139,8 +140,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         throw new Error(response.data.message || 'Login failed');
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       dispatch({ type: 'AUTH_ERROR', payload: errorMessage });
       throw error;
     }
@@ -165,8 +166,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         throw new Error(response.data.message || 'Registration failed');
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       dispatch({ type: 'AUTH_ERROR', payload: errorMessage });
       throw error;
     }

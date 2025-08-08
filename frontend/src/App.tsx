@@ -10,6 +10,9 @@ import { ContactsPage } from './pages/ContactsPage'
 import { SpacesPage } from './pages/SpacesPage'
 import { LocationsPage } from './pages/LocationsPage'
 import OnboardingPage from './pages/OnboardingPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import PasswordResetPage from './pages/PasswordResetPage'
+import SpaceConfigurationPage from './pages/SpaceConfigurationPage'
 
 const queryClient = new QueryClient()
 
@@ -36,6 +39,24 @@ function App() {
                 element={
                   <ProtectedRoute requireAuth={false}>
                     <RegisterPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/forgot-password" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <ForgotPasswordPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/reset-password/:token" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <PasswordResetPage />
                   </ProtectedRoute>
                 } 
               />
@@ -81,6 +102,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <LocationsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/configure-spaces" 
+                element={
+                  <ProtectedRoute>
+                    <SpaceConfigurationPage />
                   </ProtectedRoute>
                 } 
               />

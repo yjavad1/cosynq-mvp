@@ -331,8 +331,9 @@ const OnboardingPage: React.FC = () => {
                   onClick={handleSkip}
                   disabled={isLoading}
                   className="text-sm text-gray-500 hover:text-gray-700 focus:outline-none focus:underline"
+                  title="You can complete setup later from your dashboard"
                 >
-                  Skip for now
+                  I'll do this later
                 </button>
 
                 {currentStep < steps.length - 1 ? (

@@ -27,7 +27,13 @@ export function ContactFilters({ filters, onFiltersChange }: ContactFiltersProps
     if (value === '' || value === 'all') {
       delete newFilters[key];
     } else {
-      newFilters[key] = value as any;
+      if (key === 'type') {
+        newFilters[key] = value as ContactType;
+      } else if (key === 'contextState') {
+        newFilters[key] = value as ContextState;
+      } else {
+        newFilters[key] = value;
+      }
     }
     onFiltersChange(newFilters);
   };

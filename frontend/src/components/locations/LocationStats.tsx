@@ -1,5 +1,5 @@
 import { MapPin, Building, TrendingUp, Star } from 'lucide-react';
-import { LocationStats as LocationStatsType } from '@shared/types';
+import { LocationStats as LocationStatsType, AmenityType } from '@shared/types';
 import { getAmenityDisplayName, getAmenityIcon } from '../../hooks/useLocations';
 
 interface LocationStatsProps {
@@ -49,7 +49,7 @@ export function LocationStats({ data, isLoading }: LocationStatsProps) {
 
   // Handle backend response mismatches and safe array access
   const locationsByCity = data.locationsByCity || [];
-  const topAmenities: Array<{ amenity: any; count: number }> = (data as any).popularAmenities || data.topAmenities || [];
+  const topAmenities = data.topAmenities || [];
   const recentLocations = data.recentLocations || [];
 
   const stats = [
@@ -79,7 +79,7 @@ export function LocationStats({ data, isLoading }: LocationStatsProps) {
     },
     {
       name: 'Top Amenity',
-      value: topAmenities.length > 0 ? getAmenityDisplayName(topAmenities[0].amenity) : 'None',
+      value: topAmenities.length > 0 ? getAmenityDisplayName(topAmenities[0].amenity as AmenityType) : 'None',
       icon: Star,
       color: 'bg-orange-500',
       change: topAmenities.length > 0 ? `${topAmenities[0].count} locations` : '0 locations',
@@ -162,9 +162,9 @@ export function LocationStats({ data, isLoading }: LocationStatsProps) {
               {topAmenities.slice(0, 5).map((amenityData, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <span className="text-sm mr-2">{getAmenityIcon(amenityData.amenity)}</span>
+                    <span className="text-sm mr-2">{getAmenityIcon(amenityData.amenity as AmenityType)}</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {getAmenityDisplayName(amenityData.amenity)}
+                      {getAmenityDisplayName(amenityData.amenity as AmenityType)}
                     </span>
                   </div>
                   <span className="text-sm text-gray-500">

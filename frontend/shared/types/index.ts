@@ -151,7 +151,7 @@ export type AmenityType =
   | 'Handicap_Accessible';
 
 // Setup Wizard Types
-export type SetupStep = 'company' | 'locations' | 'spaces' | 'pricing' | 'launch';
+export type SetupStep = 'company' | 'locations' | 'launch';
 
 export interface CompanyProfile {
   companyName: string;

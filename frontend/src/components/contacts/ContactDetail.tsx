@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Contact } from '@shared/types';
+import { Contact, ContactInteraction } from '@shared/types';
 import { useAddInteraction, useDeleteContact } from '../../hooks/useContacts';
 import { X, Mail, Phone, Building, MapPin, Edit, Trash2, Plus } from 'lucide-react';
 import { ContactForm } from './ContactForm';
@@ -357,7 +357,7 @@ export function ContactDetail({ contact, isOpen, onClose }: ContactDetailProps) 
                         <div>
                           <select
                             value={newInteraction.type}
-                            onChange={(e) => setNewInteraction({ ...newInteraction, type: e.target.value as any })}
+                            onChange={(e) => setNewInteraction({ ...newInteraction, type: e.target.value as ContactInteraction['type'] })}
                             className="block w-full rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
                           >
                             <option value="note">Note</option>

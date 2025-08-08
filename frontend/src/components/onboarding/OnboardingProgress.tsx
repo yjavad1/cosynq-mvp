@@ -1,7 +1,6 @@
-import { CheckCircle, Building, MapPin, Grid3X3, DollarSign, Rocket } from 'lucide-react';
+import { CheckCircle, Building, MapPin, Rocket } from 'lucide-react';
 import { SetupStep } from '@shared/types';
 import { useLocationStats } from '../../hooks/useLocations';
-import { useSpaceStats } from '../../hooks/useSpaces';
 
 interface OnboardingProgressProps {
   currentStep: SetupStep;
@@ -36,21 +35,9 @@ const steps: StepInfo[] = [
     icon: MapPin
   },
   { 
-    key: 'spaces', 
-    title: 'Configure Spaces', 
-    description: 'Space types & layout',
-    icon: Grid3X3
-  },
-  { 
-    key: 'pricing', 
-    title: 'Pricing Rules', 
-    description: 'Rates & packages',
-    icon: DollarSign
-  },
-  { 
     key: 'launch', 
-    title: 'Go Live', 
-    description: 'Review & launch',
+    title: 'Launch', 
+    description: 'Complete setup',
     icon: Rocket
   },
 ];
@@ -63,11 +50,9 @@ export function OnboardingProgress({
   className = ''
 }: OnboardingProgressProps) {
   const { data: locationStats } = useLocationStats();
-  const { data: spaceStats } = useSpaceStats();
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
   const totalLocations = locationStats?.totalLocations || 0;
-  const totalSpaces = spaceStats?.totalSpaces || 0;
 
   const getStepStatus = (stepKey: SetupStep, stepIndex: number) => {
     if (completedSteps.includes(stepKey)) return 'completed';
@@ -83,10 +68,6 @@ export function OnboardingProgress({
       case 'locations':
         if (totalLocations === 0) return 0;
         return Math.min(100, (totalLocations / expectedLocations) * 100);
-      case 'spaces':
-        return totalSpaces > 0 ? 100 : 0;
-      case 'pricing':
-        return completedSteps.includes('pricing') ? 100 : 0;
       case 'launch':
         return completedSteps.includes('launch') ? 100 : 0;
       default:
@@ -102,10 +83,6 @@ export function OnboardingProgress({
         if (totalLocations === 0) return 'No locations added';
         if (totalLocations >= expectedLocations) return `${totalLocations} location${totalLocations > 1 ? 's' : ''} added ✓`;
         return `${totalLocations}/${expectedLocations} locations added`;
-      case 'spaces':
-        return totalSpaces > 0 ? `${totalSpaces} space type${totalSpaces > 1 ? 's' : ''} configured` : 'Not configured';
-      case 'pricing':
-        return completedSteps.includes('pricing') ? 'Pricing configured' : 'Not configured';
       case 'launch':
         return completedSteps.includes('launch') ? 'Workspace launched!' : 'Ready to launch';
       default:
@@ -217,9 +194,7 @@ export function OnboardingProgress({
             <p className="text-sm text-blue-700">
               {currentStep === 'company' && 'Complete your company profile to continue'}
               {currentStep === 'locations' && `Add ${expectedLocations - totalLocations} more location${expectedLocations - totalLocations !== 1 ? 's' : ''} to continue`}
-              {currentStep === 'spaces' && 'Configure your space types and amenities'}
-              {currentStep === 'pricing' && 'Set up your pricing structure'}
-              {currentStep === 'launch' && 'Review everything and launch your workspace!'}
+              {currentStep === 'launch' && 'Launch your workspace and start managing your coworking space!'}
             </p>
           </div>
         )}

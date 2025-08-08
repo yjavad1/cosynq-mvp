@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginCredentials } from '@shared/types';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle } from 'lucide-react';
 
 const LoginForm: React.FC = () => {
   const { login, isLoading, error, clearError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState<LoginCredentials>({
     email: '',
     password: '',
   });
   const [formErrors, setFormErrors] = useState<Partial<LoginCredentials>>({});
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Check for success message from password reset
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the message from location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const validateForm = (): boolean => {
     const errors: Partial<LoginCredentials> = {};
@@ -39,6 +51,10 @@ const LoginForm: React.FC = () => {
     
     if (error) {
       clearError();
+    }
+    
+    if (successMessage) {
+      setSuccessMessage(null);
     }
   };
 
@@ -76,6 +92,17 @@ const LoginForm: React.FC = () => {
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+              <div className="flex">
+                <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <div className="ml-3">
+                  <p className="text-sm text-green-800">{successMessage}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-md p-4">
               <p className="text-red-800 text-sm">{error}</p>
@@ -124,6 +151,15 @@ const LoginForm: React.FC = () => {
                 <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
               )}
             </div>
+          </div>
+
+          <div className="flex items-center justify-end">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-primary-600 hover:text-primary-500 focus:outline-none focus:underline"
+            >
+              Forgot your password?
+            </Link>
           </div>
 
           <div>
