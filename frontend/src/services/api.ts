@@ -21,7 +21,10 @@ import {
   LocationStats,
   ProfileResponse,
   OperatingHours,
-  OnboardingData
+  OnboardingData,
+  ProductType,
+  CreateProductTypeData,
+  ProductTypesResponse
 } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -397,6 +400,54 @@ class ApiService {
     requiresOnboarding: boolean;
   }>>> {
     return this.api.post('/onboarding/reset', { resetData });
+  }
+
+  // ProductType Management Methods
+  async getProductTypes(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    locationId?: string;
+    category?: string;
+    isActive?: boolean;
+  }): Promise<AxiosResponse<ApiResponse<ProductTypesResponse>>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    return this.api.get(`/product-types${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getProductType(id: string): Promise<AxiosResponse<ApiResponse<{ productType: ProductType }>>> {
+    return this.api.get(`/product-types/${id}`);
+  }
+
+  async createProductType(productTypeData: CreateProductTypeData): Promise<AxiosResponse<ApiResponse<{ productType: ProductType }>>> {
+    console.log('Creating product type with data:', JSON.stringify(productTypeData, null, 2));
+    return this.api.post('/product-types', productTypeData);
+  }
+
+  async updateProductType(id: string, productTypeData: Partial<CreateProductTypeData>): Promise<AxiosResponse<ApiResponse<{ productType: ProductType }>>> {
+    console.log('Updating product type:', id, 'with data:', JSON.stringify(productTypeData, null, 2));
+    return this.api.put(`/product-types/${id}`, productTypeData);
+  }
+
+  async deleteProductType(id: string): Promise<AxiosResponse<ApiResponse<{}>>> {
+    return this.api.delete(`/product-types/${id}`);
+  }
+
+  async generateSpaces(productTypeId: string, count: number): Promise<AxiosResponse<ApiResponse<{ 
+    productType: ProductType;
+    spacesGenerated: number;
+    spaces: Space[];
+  }>>> {
+    console.log('Generating spaces for product type:', productTypeId, 'count:', count);
+    return this.api.post(`/product-types/${productTypeId}/generate-spaces`, { count });
   }
 }
 

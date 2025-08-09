@@ -134,22 +134,23 @@ const updateProductTypeSchema = createProductTypeSchema.fork(
   (schema) => schema.optional()
 );
 
-class ProductTypeController {
-  // Helper method to ensure user is authenticated
-  private ensureAuthenticated(req: AuthRequest, res: Response) {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        message: 'Authentication required'
-      });
-      return false;
-    }
-    return true;
+// Helper function to ensure user is authenticated (standalone function like locationController)
+const ensureAuthenticated = (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+    return false;
   }
+  return true;
+};
+
+class ProductTypeController {
   // Get all product types for a location with filtering and pagination
   async getProductTypes(req: AuthRequest, res: Response) {
     try {
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
       const {
         locationId,
@@ -264,7 +265,7 @@ class ProductTypeController {
   async getProductType(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
 
       console.log('=== GET PRODUCT TYPE REQUEST ===');
@@ -339,7 +340,7 @@ class ProductTypeController {
         });
       }
 
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
       const userId = req.user!._id;
 
@@ -544,7 +545,7 @@ class ProductTypeController {
   async updateProductType(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
       const userId = req.user!._id;
 
@@ -699,7 +700,7 @@ class ProductTypeController {
   async deleteProductType(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
 
       console.log('=== DELETE PRODUCT TYPE REQUEST ===');
@@ -758,7 +759,7 @@ class ProductTypeController {
     try {
       const { id } = req.params;
       const { count } = req.body;
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
       const userId = req.user!._id;
 
@@ -841,7 +842,7 @@ class ProductTypeController {
   // Get product type statistics
   async getProductTypeStats(req: AuthRequest, res: Response) {
     try {
-      if (!this.ensureAuthenticated(req, res)) return;
+      if (!ensureAuthenticated(req, res)) return;
       const organizationId = req.user!._id;
       const { locationId } = req.query;
 

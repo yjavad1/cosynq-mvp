@@ -430,6 +430,127 @@ export interface SpaceStats {
   };
 }
 
+// ProductType interfaces
+export type ProductTypeCategory = 
+  | 'Private_Office'
+  | 'Manager_Cabin' 
+  | 'Team_Cabin'
+  | 'Meeting_Room'
+  | 'Phone_Booth'
+  | 'Hot_Desk'
+  | 'Dedicated_Desk'
+  | 'Conference_Room'
+  | 'Event_Space'
+  | 'Training_Room'
+  | 'Interview_Room'
+  | 'Focus_Pod'
+  | 'Lounge_Area'
+  | 'Virtual_Office';
+
+export type PricingType = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'tiered' | 'membership';
+
+export interface PricingTier {
+  name: string;
+  duration?: number; // in minutes
+  price: number;
+  currency: string;
+  description?: string;
+  conditions?: string;
+}
+
+export interface ProductTypePricingRule {
+  type: PricingType;
+  basePrice?: number;
+  currency: string;
+  tiers?: PricingTier[];
+  minimumDuration?: number;
+  maximumDuration?: number;
+  advanceBookingRequired?: number;
+}
+
+export interface CapacityConfig {
+  minCapacity: number;
+  maxCapacity: number;
+  optimalCapacity: number;
+  standingCapacity?: number;
+  wheelchairAccessible?: boolean;
+}
+
+export interface AutoGenerationConfig {
+  enabled: boolean;
+  naming: {
+    prefix: string;
+    startNumber: number;
+    digits: number;
+  };
+  distribution?: {
+    byFloor?: boolean;
+    perFloor?: number;
+    preferredFloors?: number[];
+  };
+}
+
+export interface ProductTypeAmenities {
+  included?: string[];
+  optional?: Array<{
+    name: string;
+    price: number;
+    currency: string;
+    description?: string;
+  }>;
+  required?: string[];
+}
+
+export interface ProductType {
+  _id: string;
+  locationId: string;
+  organizationId: string;
+  name: string;
+  category: ProductTypeCategory;
+  code: string;
+  description?: string;
+  capacity: CapacityConfig;
+  pricing: ProductTypePricingRule;
+  amenities?: ProductTypeAmenities;
+  features?: string[];
+  isActive: boolean;
+  autoGeneration: AutoGenerationConfig;
+  accessLevel?: 'public' | 'members_only' | 'premium_members' | 'private' | 'by_invitation';
+  displayOrder?: number;
+  isHighlight?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateProductTypeData {
+  locationId: string;
+  name: string;
+  category: ProductTypeCategory;
+  code: string;
+  description?: string;
+  capacity: CapacityConfig;
+  pricing: ProductTypePricingRule;
+  amenities?: ProductTypeAmenities;
+  features?: string[];
+  isActive?: boolean;
+  autoGeneration: AutoGenerationConfig;
+  accessLevel?: 'public' | 'members_only' | 'premium_members' | 'private' | 'by_invitation';
+  displayOrder?: number;
+  isHighlight?: boolean;
+}
+
+export interface ProductTypesResponse {
+  productTypes: ProductType[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
 // Contact interfaces
 export interface ContactInteraction {
   _id: string;

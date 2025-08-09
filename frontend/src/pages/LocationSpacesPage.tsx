@@ -16,9 +16,12 @@ import {
   CheckCircle2,
   Plus,
   Minus,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
 import { useLocation as useLocationById } from '../hooks/useLocations';
+import { useProductTypes, useCreateProductType, useGenerateSpaces } from '../hooks/useProductTypes';
+import { ProductTypeCategory, CreateProductTypeData } from '@shared/types';
 
 interface SpaceProduct {
   id: string;
@@ -26,6 +29,7 @@ interface SpaceProduct {
   description: string;
   icon: React.ComponentType<{ className?: string; }>;
   category: 'workspace' | 'meeting' | 'service' | 'custom';
+  productTypeCategory: ProductTypeCategory;
   basePrice: number;
   capacity?: number;
   isTeamCabin?: boolean;
@@ -46,6 +50,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Flexible workspace for individuals',
     icon: Coffee,
     category: 'workspace',
+    productTypeCategory: 'Hot_Desk',
     basePrice: 15,
     capacity: 1,
   },
@@ -55,6 +60,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Private space for team meetings',
     icon: Presentation,
     category: 'meeting',
+    productTypeCategory: 'Meeting_Room',
     basePrice: 25,
     capacity: 8,
   },
@@ -64,6 +70,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Private office for senior professionals',
     icon: UserCheck,
     category: 'workspace',
+    productTypeCategory: 'Manager_Cabin',
     basePrice: 50,
     capacity: 1,
   },
@@ -73,6 +80,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Dedicated space for small teams',
     icon: Users,
     category: 'workspace',
+    productTypeCategory: 'Team_Cabin',
     basePrice: 35,
     isTeamCabin: true,
     teamSizes: [4, 6, 8],
@@ -83,6 +91,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Business address service',
     icon: MapPin,
     category: 'service',
+    productTypeCategory: 'Virtual_Office',
     basePrice: 10,
     capacity: 0,
   },
@@ -92,6 +101,7 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Large venue for events and workshops',
     icon: Calendar,
     category: 'meeting',
+    productTypeCategory: 'Event_Space',
     basePrice: 100,
     capacity: 50,
   },
@@ -101,21 +111,61 @@ const spaceProducts: SpaceProduct[] = [
     description: 'Define your own unique offering',
     icon: Plus,
     category: 'custom',
+    productTypeCategory: 'Private_Office',
     basePrice: 20,
   },
 ];
+
+// Helper function to generate product type code
+const generateProductTypeCode = (productTypeCategory: ProductTypeCategory, index: number = 1): string => {
+  const codeMap: Record<ProductTypeCategory, string> = {
+    'Hot_Desk': 'HD',
+    'Dedicated_Desk': 'DD',
+    'Manager_Cabin': 'MC',
+    'Team_Cabin': 'TC',
+    'Private_Office': 'PO',
+    'Meeting_Room': 'MR',
+    'Conference_Room': 'CR',
+    'Phone_Booth': 'PB',
+    'Event_Space': 'ES',
+    'Training_Room': 'TR',
+    'Interview_Room': 'IR',
+    'Focus_Pod': 'FP',
+    'Lounge_Area': 'LA',
+    'Virtual_Office': 'VO'
+  };
+  
+  const prefix = codeMap[productTypeCategory] || 'SP';
+  return `${prefix}${index.toString().padStart(3, '0')}`;
+};
 
 export default function LocationSpacesPage() {
   const { locationId } = useParams<{ locationId: string }>();
   const navigate = useNavigate();
   const { data: location, isLoading: locationLoading } = useLocationById(locationId!);
   
+  // Check for existing product types for this location
+  const { data: existingProductTypes, isLoading: productTypesLoading } = useProductTypes({
+    locationId: locationId!,
+    limit: 50 // Get all product types for this location
+  });
+  
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [totalCapacity, setTotalCapacity] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [showConfiguration, setShowConfiguration] = useState(false);
+
+  // Mutations
+  const createProductType = useCreateProductType();
+  const generateSpaces = useGenerateSpaces();
+  
+  const isSaving = createProductType.isPending || generateSpaces.isPending;
+  
+  // Check if location has existing product types configured
+  const hasConfiguredSpaces = existingProductTypes?.productTypes && existingProductTypes.productTypes.length > 0;
 
   // Initialize selected products from spaceProducts
   useEffect(() => {
@@ -205,17 +255,112 @@ export default function LocationSpacesPage() {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
-    setHasUnsavedChanges(false);
-    // Show success message and redirect
-    navigate('/dashboard', { 
-      state: { 
-        message: `Space configuration for ${location?.name} saved successfully!` 
+    if (!locationId || !location) {
+      setSaveError('Location information is missing');
+      return;
+    }
+
+    setSaveError(null);
+    
+    console.log('Starting save process...');
+    
+    try {
+      const activeProducts = selectedProducts.filter(p => p.isSelected);
+      
+      if (activeProducts.length === 0) {
+        setSaveError('Please select at least one space type to configure');
+        return;
       }
-    });
+
+      console.log('Active products to save:', activeProducts);
+
+      let savedCount = 0;
+      const createdProductTypes = [];
+
+      // Create product types for each selected product
+      for (const [index, product] of activeProducts.entries()) {
+        const capacity = product.isTeamCabin 
+          ? (product.selectedTeamSize || 4) 
+          : (product.capacity || 1);
+
+        const productTypeData: CreateProductTypeData = {
+          locationId: locationId,
+          name: product.name,
+          category: product.productTypeCategory,
+          code: generateProductTypeCode(product.productTypeCategory, index + 1),
+          description: product.description,
+          capacity: {
+            minCapacity: capacity,
+            maxCapacity: capacity,
+            optimalCapacity: capacity,
+            wheelchairAccessible: true,
+          },
+          pricing: {
+            type: 'hourly',
+            basePrice: product.customPrice || product.basePrice,
+            currency: 'INR',
+            minimumDuration: 60, // 1 hour minimum
+            maximumDuration: 480, // 8 hours maximum
+            advanceBookingRequired: 0, // No advance booking required
+          },
+          amenities: {
+            included: ['WiFi', 'AC'], // Basic amenities
+            optional: [],
+            required: ['WiFi'],
+          },
+          features: [`${product.name} workspace`],
+          isActive: true,
+          autoGeneration: {
+            enabled: true,
+            naming: {
+              prefix: generateProductTypeCode(product.productTypeCategory, index + 1).substring(0, 2),
+              startNumber: 1,
+              digits: 3,
+            },
+            distribution: {
+              byFloor: false,
+            },
+          },
+          accessLevel: 'members_only',
+          displayOrder: index,
+          isHighlight: false,
+        };
+
+        console.log(`Creating product type: ${product.name}`, productTypeData);
+
+        const createdProductType = await createProductType.mutateAsync(productTypeData);
+        createdProductTypes.push(createdProductType);
+        
+        console.log(`Created product type: ${createdProductType?._id}`);
+
+        // Generate individual spaces for this product type
+        if (createdProductType?._id) {
+          console.log(`Generating ${product.quantity} spaces for product type: ${createdProductType._id}`);
+          await generateSpaces.mutateAsync({ 
+            productTypeId: createdProductType._id, 
+            count: product.quantity 
+          });
+        }
+
+        savedCount++;
+      }
+
+      setHasUnsavedChanges(false);
+      setShowConfiguration(false); // Reset to show overview
+      
+      console.log(`Successfully saved ${savedCount} product types and generated spaces`);
+      
+      // Optionally show a toast/success message here instead of navigating away immediately
+      // The user will now see the space overview automatically
+
+    } catch (error: any) {
+      console.error('Error saving space configuration:', error);
+      setSaveError(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to save space configuration. Please try again.'
+      );
+    }
   };
 
   const getCategoryColor = (category: string) => {
@@ -233,7 +378,114 @@ export default function LocationSpacesPage() {
     return Math.min(100, (selectedCount / spaceProducts.length) * 100);
   };
 
-  if (locationLoading || !location) {
+  // Space Overview Component for when spaces are already configured
+  const SpaceOverview = () => {
+    const productTypes = existingProductTypes?.productTypes || [];
+    
+    const totalConfiguredCapacity = productTypes.reduce((total: number, pt: any) => 
+      total + (pt.capacity?.optimalCapacity || 0), 0
+    );
+    
+    const totalRevenuePotential = productTypes.reduce((total: number, pt: any) => 
+      total + (pt.pricing?.basePrice || 0), 0
+    );
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Space Configuration Complete! 🎉</h2>
+          <p className="text-lg text-gray-600">
+            Your location "{location?.name}" has {productTypes.length} configured space type{productTypes.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Total Capacity</h3>
+                <p className="text-2xl font-bold text-blue-600">{totalConfiguredCapacity}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Hourly Revenue</h3>
+                <p className="text-2xl font-bold text-green-600">₹{totalRevenuePotential}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Space Types</h3>
+                <p className="text-2xl font-bold text-purple-600">{productTypes.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Configured Space Types */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Configured Space Types</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {productTypes.map((productType: any) => (
+              <div key={productType._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{productType.name}</h4>
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                    Active
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{productType.description}</p>
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <span>Capacity: {productType.capacity?.optimalCapacity || 'N/A'}</span>
+                  <span>₹{productType.pricing?.basePrice || 0}/hr</span>
+                </div>
+                <div className="mt-2">
+                  <span className="text-xs text-blue-600 font-medium">Code: {productType.code}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={() => setShowConfiguration(true)}
+            className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add More Space Types
+          </button>
+          
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (locationLoading || productTypesLoading || !location) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
@@ -241,6 +493,41 @@ export default function LocationSpacesPage() {
     );
   }
 
+  // Conditional rendering: Show overview if spaces configured, otherwise show configuration form
+  if (hasConfiguredSpaces && !showConfiguration) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-6">
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  Back to Dashboard
+                </Link>
+                <div className="h-6 w-px bg-gray-300" />
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Space Overview</h1>
+                  <p className="text-sm text-gray-600">
+                    <MapPin className="inline h-4 w-4 mr-1" />
+                    {location.name} • {location.address.city}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <SpaceOverview />
+      </div>
+    );
+  }
+
+  // Show configuration form (existing UI)
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -293,6 +580,26 @@ export default function LocationSpacesPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb Navigation */}
         <Breadcrumb />
+        
+        {/* Error Message */}
+        {saveError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{saveError}</p>
+              </div>
+              <button
+                onClick={() => setSaveError(null)}
+                className="ml-auto text-red-400 hover:text-red-600 transition-colors"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Configuration Area */}

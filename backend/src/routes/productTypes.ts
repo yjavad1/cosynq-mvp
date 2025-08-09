@@ -8,14 +8,14 @@ const router = express.Router();
 router.use(authenticate);
 
 // Product Type CRUD operations
-router.post('/', productTypeController.createProductType);
-router.get('/', productTypeController.getProductTypes);
-router.get('/stats', productTypeController.getProductTypeStats);
-router.get('/:id', productTypeController.getProductType);
-router.put('/:id', productTypeController.updateProductType);
-router.delete('/:id', productTypeController.deleteProductType);
+router.post('/', productTypeController.createProductType.bind(productTypeController));
+router.get('/', productTypeController.getProductTypes.bind(productTypeController));
+router.get('/stats', productTypeController.getProductTypeStats.bind(productTypeController));
+router.get('/:id', productTypeController.getProductType.bind(productTypeController));
+router.put('/:id', productTypeController.updateProductType.bind(productTypeController));
+router.delete('/:id', productTypeController.deleteProductType.bind(productTypeController));
 
 // Product Type specific operations
-router.post('/:id/generate-spaces', productTypeController.generateSpaces);
+router.post('/:id/generate-spaces', productTypeController.generateSpaces.bind(productTypeController));
 
 export default router;
