@@ -24,7 +24,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
     const routeMap: Record<string, string> = {
       'contacts': 'Contacts',
       'locations': 'Locations', 
-      'spaces': 'Spaces',
+      'spaces': 'Configure Spaces',
       'configure-spaces': 'Configure Spaces',
       'onboarding': 'Onboarding',
       'forgot-password': 'Forgot Password',
@@ -33,7 +33,20 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
 
     pathnames.forEach((path, index) => {
       const href = '/' + pathnames.slice(0, index + 1).join('/');
-      const label = routeMap[path] || path.charAt(0).toUpperCase() + path.slice(1);
+      
+      // Handle location-based routes differently
+      if (pathnames[index - 1] === 'locations' && pathnames[index + 1] === 'spaces') {
+        // This is a locationId, skip it or show location name
+        return;
+      }
+      
+      let label = routeMap[path] || path.charAt(0).toUpperCase() + path.slice(1);
+      
+      // Special handling for location-based spaces
+      if (path === 'spaces' && pathnames[index - 2] === 'locations') {
+        label = 'Configure Spaces';
+      }
+      
       const isCurrentPage = index === pathnames.length - 1;
       
       breadcrumbs.push({

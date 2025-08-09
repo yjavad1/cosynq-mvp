@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Users, 
-  Settings,
   BarChart3,
   Building, 
   MapPin, 
@@ -16,13 +15,13 @@ import {
 } from 'lucide-react';
 import { SetupWizard } from '../components/setup/SetupWizard';
 import { IncompleteSetupBanner } from '../components/onboarding/IncompleteSetupBanner';
-import { LocationCard } from '../components/dashboard/LocationCard';
+import { DashboardLocationCard } from '../components/dashboard/LocationCard';
 import { SetupProgressCard } from '../components/dashboard/SetupProgressCard';
 import { useContactStats } from '../hooks/useContacts';
-import { useLocationStats } from '../hooks/useLocations';
+import { useLocationStats, useLocations } from '../hooks/useLocations';
 import { useSpaceStats } from '../hooks/useSpaces';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
-import { LocationStats } from '@shared/types';
+import { Location } from '@shared/types';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -47,8 +46,10 @@ const DashboardPage: React.FC = () => {
 
   // Data queries for dashboard stats
   const { data: contactStats } = useContactStats();
-  const { data: locationStats } = useLocationStats();
+  const { data: locationStats, isLoading: locationStatsLoading, error: locationStatsError } = useLocationStats();
+  const { data: locationsData, isLoading: locationsLoading } = useLocations({ limit: 4 });
   const { data: spaceStats } = useSpaceStats();
+
 
   const handleLogout = async () => {
     try {
@@ -232,16 +233,41 @@ const DashboardPage: React.FC = () => {
 
                 {/* Location Cards Grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {locationStats?.recentLocations?.slice(0, 4).map((location: LocationStats['recentLocations'][0], index: number) => (
-                    <LocationCard
-                      key={location._id}
-                      location={location}
-                      spaceCount={Math.floor(Math.random() * 15) + 3}
-                      setupProgress={60 + (index * 15) + Math.floor(Math.random() * 20)}
-                      monthlyRevenue={Math.floor(Math.random() * 50000) + 25000}
-                      totalBookings={Math.floor(Math.random() * 50) + 10}
-                    />
-                  )) || (
+                  {locationStatsLoading || locationsLoading ? (
+                    // Loading state
+                    <div className="xl:col-span-2 text-center py-12">
+                      <div className="animate-spin mx-auto h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mb-4"></div>
+                      <p className="text-gray-600">Loading your locations...</p>
+                    </div>
+                  ) : locationStatsError ? (
+                    // Error state
+                    <div className="xl:col-span-2 text-center py-12">
+                      <div className="mx-auto h-12 w-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                        <MapPin className="h-6 w-6 text-red-600" />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading locations</h3>
+                      <p className="text-gray-600 mb-4">There was a problem fetching your location data.</p>
+                      <button 
+                        onClick={() => window.location.reload()}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : locationsData?.locations && locationsData.locations.length > 0 ? (
+                    // Has locations - show cards from actual location data
+                    locationsData.locations.slice(0, 4).map((location: Location, index: number) => (
+                      <DashboardLocationCard
+                        key={location._id}
+                        location={location}
+                        spaceCount={Math.floor(Math.random() * 15) + 3}
+                        setupProgress={60 + (index * 15) + Math.floor(Math.random() * 20)}
+                        monthlyRevenue={Math.floor(Math.random() * 50000) + 25000}
+                        totalBookings={Math.floor(Math.random() * 50) + 10}
+                      />
+                    ))
+                  ) : (
+                    // No locations state
                     <div className="xl:col-span-2 text-center py-12">
                       <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No locations yet</h3>
@@ -266,6 +292,7 @@ const DashboardPage: React.FC = () => {
                   nextStep="Configure your space offerings"
                   totalLocations={locationStats?.totalLocations || 0}
                   totalSpaces={spaceStats?.totalSpaces || 0}
+                  firstLocationId={locationsData?.locations?.[0]?._id || locationStats?.recentLocations?.[0]?._id}
                 />
 
                 {/* Quick Actions */}
@@ -273,16 +300,16 @@ const DashboardPage: React.FC = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                   <div className="space-y-3">
                     <Link
-                      to="/configure-spaces"
+                      to="/locations"
                       className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-lg border border-blue-200 transition-colors group"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <Settings className="h-4 w-4 text-white" />
+                          <MapPin className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <p className="font-medium text-blue-900">Configure Spaces</p>
-                          <p className="text-sm text-blue-700">Set up your offerings</p>
+                          <p className="font-medium text-blue-900">Manage Locations</p>
+                          <p className="text-sm text-blue-700">Configure spaces & settings</p>
                         </div>
                       </div>
                       <ArrowRight className="h-5 w-5 text-blue-600 group-hover:translate-x-1 transition-transform" />

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Location, LocationStats } from '@shared/types';
 
-interface LocationCardProps {
+interface DashboardLocationCardProps {
   location: Location | LocationStats['recentLocations'][0];
   spaceCount?: number;
   setupProgress?: number;
@@ -21,13 +21,13 @@ interface LocationCardProps {
   totalBookings?: number;
 }
 
-export function LocationCard({ 
+export function DashboardLocationCard({ 
   location, 
   spaceCount = 0, 
   setupProgress = 0,
   monthlyRevenue = 0,
   totalBookings = 0
-}: LocationCardProps) {
+}: DashboardLocationCardProps) {
   const getSetupStatus = () => {
     if (setupProgress >= 100) return { status: 'complete', color: 'text-green-600', bg: 'bg-green-50', icon: CheckCircle };
     if (setupProgress >= 60) return { status: 'good', color: 'text-blue-600', bg: 'bg-blue-50', icon: Clock };
@@ -56,9 +56,11 @@ export function LocationCard({
                 <MapPin className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                  {location.name}
-                </h3>
+                <Link to={`/locations/${location._id}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer">
+                    {location.name}
+                  </h3>
+                </Link>
                 <p className="text-sm text-gray-500 font-mono">{location.code}</p>
               </div>
             </div>
@@ -135,7 +137,7 @@ export function LocationCard({
       <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
         <div className="grid grid-cols-3 gap-2">
           <Link
-            to="/configure-spaces"
+            to={`/locations/${location._id}/spaces`}
             className="flex items-center justify-center px-3 py-2 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-md transition-colors group"
           >
             <Settings className="h-3 w-3 mr-1" />
@@ -161,7 +163,7 @@ export function LocationCard({
         
         {setupProgress < 100 && (
           <Link
-            to="/configure-spaces"
+            to={`/locations/${location._id}/spaces`}
             className="mt-3 w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-md shadow-sm hover:shadow-md transition-all group"
           >
             Complete Setup

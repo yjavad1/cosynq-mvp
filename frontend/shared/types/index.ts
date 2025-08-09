@@ -28,6 +28,18 @@ export interface AuthUser extends User {
   refreshToken?: string;
 }
 
+export interface OnboardingData {
+  companyName?: string;
+  industry?: string;
+  companySize?: string;
+  website?: string;
+  description?: string;
+  hasCreatedLocation?: boolean;
+  hasCreatedSpace?: boolean;
+  hasConfiguredPricing?: boolean;
+  completionSteps?: string[];
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;

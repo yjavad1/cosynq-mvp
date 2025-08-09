@@ -17,6 +17,7 @@ interface SetupProgressCardProps {
   nextStep?: string;
   totalLocations: number;
   totalSpaces: number;
+  firstLocationId?: string;
 }
 
 export function SetupProgressCard({ 
@@ -24,7 +25,8 @@ export function SetupProgressCard({
   completedSteps, 
   nextStep,
   totalLocations,
-  totalSpaces
+  totalSpaces,
+  firstLocationId
 }: SetupProgressCardProps) {
   const getProgressLevel = () => {
     if (overallProgress >= 100) return { 
@@ -153,7 +155,7 @@ export function SetupProgressCard({
         )}
 
         {/* Next Step */}
-        {nextStep && overallProgress < 100 && (
+        {nextStep && overallProgress < 100 && firstLocationId && (
           <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
             <div className="flex items-center justify-between">
               <div>
@@ -161,7 +163,7 @@ export function SetupProgressCard({
                 <p className="text-sm text-blue-700">{nextStep}</p>
               </div>
               <Link
-                to="/configure-spaces"
+                to={`/locations/${firstLocationId}/spaces`}
                 className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-full transition-colors"
               >
                 Continue

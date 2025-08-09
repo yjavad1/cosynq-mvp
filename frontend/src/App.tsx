@@ -13,6 +13,8 @@ import OnboardingPage from './pages/OnboardingPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import PasswordResetPage from './pages/PasswordResetPage'
 import SpaceConfigurationPage from './pages/SpaceConfigurationPage'
+import LocationSpacesPage from './pages/LocationSpacesPage'
+import LocationDetailPage from './pages/LocationDetailPage'
 
 const queryClient = new QueryClient()
 
@@ -111,6 +113,24 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SpaceConfigurationPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/locations/:locationId" 
+                element={
+                  <ProtectedRoute>
+                    <LocationDetailPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/locations/:locationId/spaces" 
+                element={
+                  <ProtectedRoute>
+                    <LocationSpacesPage />
                   </ProtectedRoute>
                 } 
               />

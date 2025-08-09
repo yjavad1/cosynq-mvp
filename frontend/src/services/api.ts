@@ -19,7 +19,9 @@ import {
   CreateLocationData,
   LocationsResponse,
   LocationStats,
-  ProfileResponse
+  ProfileResponse,
+  OperatingHours,
+  OnboardingData
 } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -346,7 +348,7 @@ class ApiService {
     isOpen: boolean;
     currentTime: string;
     currentDay: string;
-    todayHours: any;
+    todayHours: OperatingHours | null;
     timezone: string;
   }>>> {
     return this.api.get(`/locations/${id}/hours`);
@@ -357,7 +359,7 @@ class ApiService {
     onboardingCompleted: boolean;
     onboardingSkipped: boolean;
     onboardingCompletedAt?: string;
-    onboardingData: any;
+    onboardingData: OnboardingData | null;
     requiresOnboarding: boolean;
     completedSteps: string[];
   }>>> {
@@ -391,7 +393,7 @@ class ApiService {
   async resetOnboarding(resetData: boolean = false): Promise<AxiosResponse<ApiResponse<{
     onboardingCompleted: boolean;
     onboardingSkipped: boolean;
-    onboardingData: any;
+    onboardingData: OnboardingData | null;
     requiresOnboarding: boolean;
   }>>> {
     return this.api.post('/onboarding/reset', { resetData });

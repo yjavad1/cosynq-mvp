@@ -27,12 +27,12 @@ const availableAmenities: AmenityType[] = [
 export function LocationFilters({ filters, onFiltersChange }: LocationFiltersProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
-  const handleInputChange = (key: keyof LocationFiltersProps['filters'], value: any) => {
+  const handleInputChange = (key: keyof LocationFiltersProps['filters'], value: string | number | boolean | undefined) => {
     const newFilters = { ...filters };
     if (value === '' || value === undefined) {
       delete newFilters[key];
     } else {
-      newFilters[key] = value;
+      (newFilters as any)[key] = value;
     }
     onFiltersChange(newFilters);
   };

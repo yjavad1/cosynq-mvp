@@ -219,7 +219,8 @@ export const getLocation = async (req: AuthRequest, res: Response) => {
     }
 
     console.log('Found location:', location.name);
-    res.json({ success: true, data: location });
+    console.log('Sending response with location data');
+    res.json({ success: true, data: { location } });
   } catch (error: any) {
     console.error('Error in getLocation:', error);
     res.status(500).json({
@@ -283,7 +284,7 @@ export const createLocation = async (req: AuthRequest, res: Response) => {
     await location.populate('createdBy', 'firstName lastName');
     
     console.log('Location created successfully:', location._id);
-    res.status(201).json({ success: true, data: location });
+    res.status(201).json({ success: true, data: { location } });
   } catch (error: any) {
     console.error('Error in createLocation:', error);
     res.status(500).json({
@@ -365,7 +366,7 @@ export const updateLocation = async (req: AuthRequest, res: Response) => {
      .populate('staff', 'firstName lastName');
 
     console.log('Location updated successfully:', location!._id);
-    res.json({ success: true, data: location });
+    res.json({ success: true, data: { location } });
   } catch (error: any) {
     console.error('Error in updateLocation:', error);
     res.status(500).json({

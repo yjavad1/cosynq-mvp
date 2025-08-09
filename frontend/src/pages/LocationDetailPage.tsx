@@ -1,0 +1,175 @@
+import { Link, useParams } from 'react-router-dom';
+import { ArrowLeft, MapPin, Settings, BarChart3, Calendar } from 'lucide-react';
+import { Breadcrumb } from '../components/navigation/Breadcrumb';
+import { useLocation } from '../hooks/useLocations';
+
+export default function LocationDetailPage() {
+  const { locationId } = useParams<{ locationId: string }>();
+  const { data: location, isLoading } = useLocation(locationId!);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  if (!location) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Location Not Found</h1>
+          <Link to="/dashboard" className="text-blue-600 hover:text-blue-800">
+            Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-6">
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Back to Dashboard
+              </Link>
+              <div className="h-6 w-px bg-gray-300" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{location.name}</h1>
+                <p className="text-sm text-gray-600">
+                  <MapPin className="inline h-4 w-4 mr-1" />
+                  {location.address.city}, {location.address.state}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb />
+        
+        {/* Location Management Options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Configure Spaces */}
+          <Link
+            to={`/locations/${locationId}/spaces`}
+            className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow-sm hover:shadow-md transition-all hover:scale-105"
+          >
+            <div>
+              <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
+                <Settings className="h-6 w-6" />
+              </span>
+            </div>
+            <div className="mt-4">
+              <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                Configure Spaces
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Set up workspace offerings, pricing, and capacity for this location.
+              </p>
+              <div className="mt-3 text-sm font-medium text-blue-600">
+                Manage space types →
+              </div>
+            </div>
+          </Link>
+
+          {/* Bookings (Coming Soon) */}
+          <div className="group relative bg-white p-6 rounded-lg shadow-sm opacity-60">
+            <div>
+              <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+                <Calendar className="h-6 w-6" />
+              </span>
+            </div>
+            <div className="mt-4">
+              <h3 className="text-lg font-medium text-gray-400">
+                Bookings
+              </h3>
+              <p className="mt-2 text-sm text-gray-400">
+                Coming soon - Manage space reservations and bookings.
+              </p>
+            </div>
+          </div>
+
+          {/* Analytics (Coming Soon) */}
+          <div className="group relative bg-white p-6 rounded-lg shadow-sm opacity-60">
+            <div>
+              <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+                <BarChart3 className="h-6 w-6" />
+              </span>
+            </div>
+            <div className="mt-4">
+              <h3 className="text-lg font-medium text-gray-400">
+                Analytics
+              </h3>
+              <p className="mt-2 text-sm text-gray-400">
+                Coming soon - View performance metrics and insights.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Location Details */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Location Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Address</h3>
+              <p className="text-gray-900">
+                {location.address.street}<br />
+                {location.address.city}, {location.address.state} {location.address.zipCode}<br />
+                {location.address.country}
+              </p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Code</h3>
+              <p className="text-gray-900 font-mono">{location.code}</p>
+              
+              <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Status</h3>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                location.isActive 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {location.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          </div>
+          
+          {location.description && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
+              <p className="text-gray-900">{location.description}</p>
+            </div>
+          )}
+
+          {location.amenities && location.amenities.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Amenities</h3>
+              <div className="flex flex-wrap gap-2">
+                {location.amenities.map((amenity) => (
+                  <span
+                    key={amenity}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  >
+                    {amenity.replace(/_/g, ' ')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
