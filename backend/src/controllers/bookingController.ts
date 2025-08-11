@@ -1,0 +1,852 @@
+import { Response } from 'express';
+import { Booking, IBooking, BookingStatus } from '../models/Booking';
+import { Space } from '../models/Space';
+import { Contact } from '../models/Contact';
+import { AuthRequest } from '../middleware/auth';
+import Joi from 'joi';
+import mongoose from 'mongoose';
+
+// Validation schemas
+const createBookingSchema = Joi.object({
+  spaceId: Joi.string().required(),
+  contactId: Joi.string().allow('').optional(),
+  startTime: Joi.date().min('now').required(),
+  endTime: Joi.date().greater(Joi.ref('startTime')).required(),
+  
+  // Customer Information (for non-contact bookings)
+  customerName: Joi.string().trim().max(100).when('contactId', {
+    is: Joi.exist().not(''),
+    then: Joi.optional(),
+    otherwise: Joi.required()
+  }),
+  customerEmail: Joi.string().email().when('contactId', {
+    is: Joi.exist().not(''),
+    then: Joi.optional(),
+    otherwise: Joi.required()
+  }),
+  customerPhone: Joi.string().trim().max(20).allow('').optional(),
+  
+  // Booking Details
+  purpose: Joi.string().trim().max(200).allow('').optional(),
+  attendeeCount: Joi.number().integer().min(1).max(100).required(),
+  specialRequests: Joi.string().trim().max(1000).allow('').optional(),
+  
+  // Pricing
+  totalAmount: Joi.number().min(0).required(),
+  currency: Joi.string().length(3).uppercase().default('INR'),
+  
+  // Notes
+  notes: Joi.string().trim().max(1000).allow('').optional()
+});
+
+const updateBookingSchema = Joi.object({
+  startTime: Joi.date().min('now').optional(),
+  endTime: Joi.date().when('startTime', {
+    is: Joi.exist(),
+    then: Joi.date().greater(Joi.ref('startTime')).required(),
+    otherwise: Joi.date().optional()
+  }),
+  
+  status: Joi.string().valid('Pending', 'Confirmed', 'Cancelled', 'Completed', 'No Show').optional(),
+  
+  // Customer Information updates
+  customerName: Joi.string().trim().max(100).optional(),
+  customerEmail: Joi.string().email().optional(),
+  customerPhone: Joi.string().trim().max(20).allow('').optional(),
+  
+  // Booking Details updates
+  purpose: Joi.string().trim().max(200).allow('').optional(),
+  attendeeCount: Joi.number().integer().min(1).max(100).optional(),
+  specialRequests: Joi.string().trim().max(1000).allow('').optional(),
+  
+  // Status updates
+  paymentStatus: Joi.string().valid('Pending', 'Paid', 'Refunded', 'Failed').optional(),
+  cancelReason: Joi.string().trim().max(500).allow('').optional(),
+  notes: Joi.string().trim().max(1000).allow('').optional(),
+  
+  // Check-in/Check-out
+  checkedIn: Joi.boolean().optional(),
+  checkInTime: Joi.date().optional(),
+  checkOutTime: Joi.date().optional()
+});
+
+const availabilityQuerySchema = Joi.object({
+  date: Joi.date().min('now').required(),
+  duration: Joi.number().integer().min(15).max(1440).default(60) // in minutes
+});
+
+// Helper function to ensure user is authenticated
+const ensureAuthenticated = (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+    return false;
+  }
+  return true;
+};
+
+// Get all bookings for the organization with filtering, pagination, and search
+export const getBookings = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!ensureAuthenticated(req, res)) return;
+    
+    const organizationId = req.user!._id;
+    const {
+      page = '1',
+      limit = '10',
+      search = '',
+      spaceId,
+      contactId,
+      status,
+      startDate,
+      endDate,
+      sortBy = 'startTime',
+      sortOrder = 'desc'
+    } = req.query;
+
+    console.log('=== GET BOOKINGS REQUEST ===');
+    console.log('Organization ID:', organizationId);
+    console.log('Query params:', req.query);
+
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter object
+    let filter: any = { organizationId };
+
+    // Space filter
+    if (spaceId) {
+      if (!mongoose.Types.ObjectId.isValid(spaceId as string)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid space ID format'
+        });
+      }
+      filter.spaceId = spaceId;
+    }
+
+    // Contact filter
+    if (contactId) {
+      if (!mongoose.Types.ObjectId.isValid(contactId as string)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid contact ID format'
+        });
+      }
+      filter.contactId = contactId;
+    }
+
+    // Status filter
+    if (status) {
+      filter.status = status;
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      filter.startTime = {};
+      if (startDate) {
+        filter.startTime.$gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        filter.startTime.$lte = new Date(endDate as string);
+      }
+    }
+
+    // Search functionality
+    if (search) {
+      filter.$or = [
+        { customerName: new RegExp(search as string, 'i') },
+        { customerEmail: new RegExp(search as string, 'i') },
+        { purpose: new RegExp(search as string, 'i') },
+        { bookingReference: new RegExp(search as string, 'i') }
+      ];
+    }
+
+    // Build sort object
+    const sortObj: any = {};
+    sortObj[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+
+    console.log('Filter applied:', JSON.stringify(filter, null, 2));
+
+    // Execute query with populate
+    const [bookings, total] = await Promise.all([
+      Booking.find(filter)
+        .populate('spaceId', 'name type capacity location')
+        .populate('contactId', 'firstName lastName email company')
+        .populate('createdBy', 'firstName lastName')
+        .populate('updatedBy', 'firstName lastName')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Booking.countDocuments(filter)
+    ]);
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    console.log(`Found ${bookings.length} bookings out of ${total} total`);
+
+    res.json({
+      success: true,
+      data: {
+        bookings,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error in getBookings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve bookings',
+      error: error.message
+    });
+  }
+};
+
+// Get a single booking by ID
+export const getBooking = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+
+    console.log('=== GET BOOKING REQUEST ===');
+    console.log('Booking ID:', id);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    const booking = await Booking.findOne({ _id: id, organizationId })
+      .populate('spaceId', 'name type capacity location address rates amenities')
+      .populate('contactId', 'firstName lastName email phone company contextState')
+      .populate('createdBy', 'firstName lastName')
+      .populate('updatedBy', 'firstName lastName');
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    console.log('Booking found:', booking.bookingReference);
+
+    res.json({
+      success: true,
+      data: { booking }
+    });
+
+  } catch (error: any) {
+    console.error('Error in getBooking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve booking',
+      error: error.message
+    });
+  }
+};
+
+// Create a new booking
+export const createBooking = async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('=== CREATE BOOKING REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+    const { error, value } = createBookingSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      console.error('Validation error:', error.details);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+    const userId = req.user!._id;
+
+    // Validate space exists and belongs to organization
+    const space = await Space.findOne({
+      _id: value.spaceId,
+      organizationId
+    }).populate('locationId');
+
+    if (!space) {
+      return res.status(404).json({
+        success: false,
+        message: 'Space not found or does not belong to your organization'
+      });
+    }
+
+    // Validate contact if provided
+    if (value.contactId) {
+      const contact = await Contact.findOne({
+        _id: value.contactId,
+        organizationId
+      });
+
+      if (!contact) {
+        return res.status(404).json({
+          success: false,
+          message: 'Contact not found or does not belong to your organization'
+        });
+      }
+    }
+
+    // Check booking duration constraints
+    const bookingDuration = Math.round((value.endTime.getTime() - value.startTime.getTime()) / (1000 * 60)); // in minutes
+
+    if (bookingDuration < space.minimumBookingDuration) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum booking duration is ${space.minimumBookingDuration} minutes`
+      });
+    }
+
+    if (bookingDuration > space.maximumBookingDuration) {
+      return res.status(400).json({
+        success: false,
+        message: `Maximum booking duration is ${space.maximumBookingDuration} minutes`
+      });
+    }
+
+    // Check attendee count against space capacity
+    if (value.attendeeCount > space.capacity) {
+      return res.status(400).json({
+        success: false,
+        message: `Space capacity is ${space.capacity} people, but ${value.attendeeCount} attendees requested`
+      });
+    }
+
+    // Check for conflicting bookings
+    const conflictingBookings = await Booking.find({
+      spaceId: value.spaceId,
+      status: { $in: ['Pending', 'Confirmed'] },
+      $or: [
+        {
+          // New booking starts during existing booking
+          startTime: { $lt: value.endTime },
+          endTime: { $gt: value.startTime }
+        }
+      ]
+    });
+
+    if (conflictingBookings.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Space is not available for the requested time slot',
+        conflictingBookings: conflictingBookings.map(booking => ({
+          id: booking._id,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          reference: booking.bookingReference
+        }))
+      });
+    }
+
+    // Check advance booking rules
+    const now = new Date();
+    const hoursUntilBooking = (value.startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const daysUntilBooking = hoursUntilBooking / 24;
+
+    if (daysUntilBooking > space.advanceBookingLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `Bookings can only be made up to ${space.advanceBookingLimit} days in advance`
+      });
+    }
+
+    // Check same-day booking rules
+    const isToday = value.startTime.toDateString() === now.toDateString();
+    if (isToday && !space.allowSameDayBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'Same-day bookings are not allowed for this space'
+      });
+    }
+
+    const finalData = {
+      ...value,
+      organizationId,
+      paymentStatus: 'Pending',
+      checkedIn: false,
+      createdBy: userId,
+      updatedBy: userId
+    };
+
+    console.log('Creating booking with data:', JSON.stringify(finalData, null, 2));
+
+    const booking = new Booking(finalData);
+    await booking.save();
+
+    console.log('Booking created successfully:', booking.bookingReference);
+
+    // Populate the created booking for response
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate('spaceId', 'name type capacity location')
+      .populate('contactId', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName')
+      .populate('updatedBy', 'firstName lastName');
+
+    res.status(201).json({
+      success: true,
+      message: 'Booking created successfully',
+      data: { booking: populatedBooking }
+    });
+
+  } catch (error: any) {
+    console.error('Error in createBooking:', error);
+    
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Booking reference already exists. Please try again.'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create booking',
+      error: error.message
+    });
+  }
+};
+
+// Update an existing booking
+export const updateBooking = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+    const userId = req.user!._id;
+
+    console.log('=== UPDATE BOOKING REQUEST ===');
+    console.log('Booking ID:', id);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    const { error, value } = updateBookingSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      console.error('Validation error:', error.details);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    // Check if booking exists
+    const existingBooking = await Booking.findOne({ _id: id, organizationId });
+    if (!existingBooking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if booking can be modified
+    if (value.startTime || value.endTime) {
+      if (!existingBooking.canBeModified()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Booking cannot be modified less than 4 hours before start time'
+        });
+      }
+
+      // If changing times, check for conflicts
+      const newStartTime = value.startTime || existingBooking.startTime;
+      const newEndTime = value.endTime || existingBooking.endTime;
+
+      const conflictingBookings = await Booking.find({
+        _id: { $ne: id },
+        spaceId: existingBooking.spaceId,
+        status: { $in: ['Pending', 'Confirmed'] },
+        $or: [
+          {
+            startTime: { $lt: newEndTime },
+            endTime: { $gt: newStartTime }
+          }
+        ]
+      });
+
+      if (conflictingBookings.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'Space is not available for the updated time slot',
+          conflictingBookings: conflictingBookings.map(booking => ({
+            id: booking._id,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            reference: booking.bookingReference
+          }))
+        });
+      }
+    }
+
+    const updateData = {
+      ...value,
+      updatedBy: userId
+    };
+
+    console.log('Updating booking with data:', JSON.stringify(updateData, null, 2));
+
+    const updatedBooking = await Booking.findOneAndUpdate(
+      { _id: id, organizationId },
+      updateData,
+      { 
+        new: true, 
+        runValidators: true 
+      }
+    )
+    .populate('spaceId', 'name type capacity location')
+    .populate('contactId', 'firstName lastName email')
+    .populate('createdBy', 'firstName lastName')
+    .populate('updatedBy', 'firstName lastName');
+
+    console.log('Booking updated successfully');
+
+    res.json({
+      success: true,
+      message: 'Booking updated successfully',
+      data: { booking: updatedBooking }
+    });
+
+  } catch (error: any) {
+    console.error('Error in updateBooking:', error);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update booking',
+      error: error.message
+    });
+  }
+};
+
+// Cancel/Delete a booking
+export const deleteBooking = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+    const userId = req.user!._id;
+
+    console.log('=== DELETE BOOKING REQUEST ===');
+    console.log('Booking ID:', id);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+
+    // Check if booking exists
+    const existingBooking = await Booking.findOne({ _id: id, organizationId });
+    if (!existingBooking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if booking can be cancelled
+    if (!existingBooking.canBeCancelled()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking cannot be cancelled less than 2 hours before start time'
+      });
+    }
+
+    // Update status to Cancelled instead of deleting
+    const cancelledBooking = await Booking.findOneAndUpdate(
+      { _id: id, organizationId },
+      { 
+        status: 'Cancelled',
+        updatedBy: userId,
+        cancelReason: req.body.cancelReason || 'Cancelled by user'
+      },
+      { new: true }
+    );
+
+    console.log('Booking cancelled successfully');
+
+    res.json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      data: { booking: cancelledBooking }
+    });
+
+  } catch (error: any) {
+    console.error('Error in deleteBooking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel booking',
+      error: error.message
+    });
+  }
+};
+
+// Check space availability for a specific date
+export const checkSpaceAvailability = async (req: AuthRequest, res: Response) => {
+  try {
+    const { spaceId } = req.params;
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+
+    console.log('=== CHECK SPACE AVAILABILITY REQUEST ===');
+    console.log('Space ID:', spaceId);
+    console.log('Query params:', req.query);
+
+    if (!mongoose.Types.ObjectId.isValid(spaceId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid space ID format'
+      });
+    }
+
+    const { error, value } = availabilityQuerySchema.validate(req.query);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid query parameters',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+
+    // Validate space exists and belongs to organization
+    const space = await Space.findOne({
+      _id: spaceId,
+      organizationId
+    }).populate('locationId', 'operatingHours timezone');
+
+    if (!space) {
+      return res.status(404).json({
+        success: false,
+        message: 'Space not found or does not belong to your organization'
+      });
+    }
+
+    const targetDate = new Date(value.date);
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get all existing bookings for this space on the target date
+    const existingBookings = await Booking.find({
+      spaceId,
+      status: { $in: ['Pending', 'Confirmed'] },
+      startTime: { $gte: startOfDay, $lte: endOfDay }
+    }).sort({ startTime: 1 });
+
+    // Generate available time slots based on space operating hours
+    // For now, using default 9 AM to 6 PM, but this should be enhanced to use actual location operating hours
+    const operatingStart = new Date(targetDate);
+    operatingStart.setHours(9, 0, 0, 0);
+    
+    const operatingEnd = new Date(targetDate);
+    operatingEnd.setHours(18, 0, 0, 0);
+
+    const availableSlots = [];
+    const slotDuration = value.duration; // in minutes
+    
+    let currentSlotStart = new Date(operatingStart);
+    
+    while (currentSlotStart.getTime() + (slotDuration * 60 * 1000) <= operatingEnd.getTime()) {
+      const currentSlotEnd = new Date(currentSlotStart.getTime() + (slotDuration * 60 * 1000));
+      
+      // Check if this slot conflicts with any existing booking
+      const hasConflict = existingBookings.some(booking => {
+        return (
+          (currentSlotStart < booking.endTime) && 
+          (currentSlotEnd > booking.startTime)
+        );
+      });
+      
+      if (!hasConflict) {
+        availableSlots.push({
+          startTime: new Date(currentSlotStart),
+          endTime: new Date(currentSlotEnd),
+          duration: slotDuration,
+          isAvailable: true
+        });
+      }
+      
+      // Move to next 30-minute slot
+      currentSlotStart = new Date(currentSlotStart.getTime() + (30 * 60 * 1000));
+    }
+
+    console.log(`Found ${availableSlots.length} available slots for ${targetDate.toDateString()}`);
+
+    res.json({
+      success: true,
+      data: {
+        space: {
+          id: space._id,
+          name: space.name,
+          capacity: space.capacity,
+          minimumBookingDuration: space.minimumBookingDuration,
+          maximumBookingDuration: space.maximumBookingDuration
+        },
+        date: targetDate.toISOString().split('T')[0],
+        requestedDuration: slotDuration,
+        totalAvailableSlots: availableSlots.length,
+        availableSlots,
+        existingBookings: existingBookings.map(booking => ({
+          id: booking._id,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          reference: booking.bookingReference
+        }))
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error in checkSpaceAvailability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check space availability',
+      error: error.message
+    });
+  }
+};
+
+// Get booking statistics
+export const getBookingStats = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!ensureAuthenticated(req, res)) return;
+    const organizationId = req.user!._id;
+
+    console.log('=== GET BOOKING STATS REQUEST ===');
+    console.log('Organization ID:', organizationId);
+
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - today.getDay());
+    
+    const nextWeekStart = new Date(thisWeekStart);
+    nextWeekStart.setDate(thisWeekStart.getDate() + 7);
+
+    const [
+      totalBookings,
+      todayBookings,
+      thisWeekBookings,
+      bookingsByStatus,
+      bookingsBySpace,
+      recentBookings
+    ] = await Promise.all([
+      // Total bookings
+      Booking.countDocuments({ organizationId }),
+      
+      // Today's bookings
+      Booking.countDocuments({ 
+        organizationId,
+        startTime: { $gte: today, $lt: tomorrow }
+      }),
+      
+      // This week's bookings
+      Booking.countDocuments({ 
+        organizationId,
+        startTime: { $gte: thisWeekStart, $lt: nextWeekStart }
+      }),
+      
+      // Bookings by status
+      Booking.aggregate([
+        { $match: { organizationId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]),
+      
+      // Bookings by space
+      Booking.aggregate([
+        { $match: { organizationId } },
+        { $group: { _id: '$spaceId', count: { $sum: 1 } } },
+        { $lookup: { from: 'spaces', localField: '_id', foreignField: '_id', as: 'space' } },
+        { $unwind: '$space' },
+        { $project: { _id: 1, count: 1, spaceName: '$space.name', spaceType: '$space.type' } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]),
+      
+      // Recent bookings
+      Booking.find({ organizationId })
+        .populate('spaceId', 'name type')
+        .populate('contactId', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('bookingReference startTime endTime status customerName createdAt')
+    ]);
+
+    const stats = {
+      totalBookings,
+      todayBookings,
+      thisWeekBookings,
+      bookingsByStatus: bookingsByStatus.map(item => ({
+        status: item._id,
+        count: item.count
+      })),
+      bookingsBySpace,
+      recentBookings
+    };
+
+    console.log('Booking stats calculated');
+
+    res.json({
+      success: true,
+      data: stats
+    });
+
+  } catch (error: any) {
+    console.error('Error in getBookingStats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve booking statistics',
+      error: error.message
+    });
+  }
+};

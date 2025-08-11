@@ -4,6 +4,7 @@ import contactRoutes from './contacts';
 import spaceRoutes from './spaces';
 import locationRoutes from './locations';
 import productTypeRoutes from './productTypes';
+import bookingRoutes from './bookings';
 import onboardingRoutes from './onboarding';
 
 const router = express.Router();
@@ -25,6 +26,9 @@ console.log('✅ Location routes registered at /api/locations');
 
 router.use('/product-types', productTypeRoutes);
 console.log('✅ Product Type routes registered at /api/product-types');
+
+router.use('/bookings', bookingRoutes);
+console.log('✅ Booking routes registered at /api/bookings');
 
 router.use('/onboarding', onboardingRoutes);
 console.log('✅ Onboarding routes registered at /api/onboarding');
@@ -60,6 +64,7 @@ router.get('/health', (req, res) => {
       'GET /api/spaces/:id',
       'PUT /api/spaces/:id',
       'DELETE /api/spaces/:id',
+      'GET /api/spaces/:spaceId/availability',
       'GET /api/locations',
       'POST /api/locations',
       'GET /api/locations/stats',
@@ -74,6 +79,12 @@ router.get('/health', (req, res) => {
       'PUT /api/product-types/:id',
       'DELETE /api/product-types/:id',
       'POST /api/product-types/:id/generate-spaces',
+      'GET /api/bookings',
+      'POST /api/bookings',
+      'GET /api/bookings/stats',
+      'GET /api/bookings/:id',
+      'PUT /api/bookings/:id',
+      'DELETE /api/bookings/:id',
       'GET /api/onboarding/status',
       'PUT /api/onboarding/data',
       'POST /api/onboarding/complete',

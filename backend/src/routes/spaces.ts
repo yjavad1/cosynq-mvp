@@ -8,6 +8,7 @@ import {
   getSpaceAvailability,
   getSpaceStats
 } from '../controllers/spaceController';
+import { checkSpaceAvailability } from '../controllers/bookingController';
 import { authenticate } from '../middleware/auth';
 import { requireOnboarding } from '../middleware/onboarding';
 
@@ -27,5 +28,8 @@ router.get('/availability', getSpaceAvailability);
 router.get('/:id', getSpace);
 router.put('/:id', updateSpace);
 router.delete('/:id', deleteSpace);
+
+// Space specific operations
+router.get('/:spaceId/availability', checkSpaceAvailability);
 
 export default router;
