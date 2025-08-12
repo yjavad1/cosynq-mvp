@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Location, ILocation, AmenityType, DayOfWeek } from '../models/Location';
+import { Location, DayOfWeek } from '../models/Location';
 import { AuthRequest } from '../middleware/auth';
 import Joi from 'joi';
 import mongoose from 'mongoose';

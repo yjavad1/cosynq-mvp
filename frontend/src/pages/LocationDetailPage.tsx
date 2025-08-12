@@ -84,22 +84,28 @@ export default function LocationDetailPage() {
             </div>
           </Link>
 
-          {/* Bookings (Coming Soon) */}
-          <div className="group relative bg-white p-6 rounded-lg shadow-sm opacity-60">
+          {/* Bookings Management */}
+          <Link
+            to={`/locations/${locationId}/bookings`}
+            className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow-sm hover:shadow-md transition-all hover:scale-105"
+          >
             <div>
-              <span className="rounded-lg inline-flex p-3 bg-gray-50 text-gray-400 ring-4 ring-white">
+              <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
                 <Calendar className="h-6 w-6" />
               </span>
             </div>
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-400">
-                Bookings
+              <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
+                View Bookings
               </h3>
-              <p className="mt-2 text-sm text-gray-400">
-                Coming soon - Manage space reservations and bookings.
+              <p className="mt-2 text-sm text-gray-500">
+                View and manage space reservations with the booking calendar.
               </p>
+              <div className="mt-3 text-sm font-medium text-blue-600">
+                Open calendar →
+              </div>
             </div>
-          </div>
+          </Link>
 
           {/* Analytics (Coming Soon) */}
           <div className="group relative bg-white p-6 rounded-lg shadow-sm opacity-60">

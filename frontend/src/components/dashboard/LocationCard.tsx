@@ -144,13 +144,13 @@ export function DashboardLocationCard({
             Configure
           </Link>
           
-          <button
-            disabled
-            className="flex items-center justify-center px-3 py-2 text-xs font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed"
+          <Link
+            to={`/locations/${location._id}/bookings`}
+            className="flex items-center justify-center px-3 py-2 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors group"
           >
             <Calendar className="h-3 w-3 mr-1" />
             Bookings
-          </button>
+          </Link>
           
           <button
             disabled

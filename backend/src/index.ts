@@ -29,13 +29,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Debug logging
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
 // Add a simple test route for debugging Railway deployment
-app.get('/test', (req, res) => {
+app.get('/test', (_req, res) => {
   res.json({
     success: true,
     message: 'Direct route test works',
@@ -48,7 +48,7 @@ app.get('/test', (req, res) => {
 app.use('/api', routes);
 
 // Add root health check
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     success: true,
     message: 'Cosynq API Server is running',
@@ -67,7 +67,7 @@ app.use('*', (req, res) => {
   });
 });
 
-app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', error);
   res.status(500).json({
     success: false,

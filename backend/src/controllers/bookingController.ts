@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Booking, IBooking, BookingStatus } from '../models/Booking';
+import { Booking } from '../models/Booking';
 import { Space } from '../models/Space';
 import { Contact } from '../models/Contact';
 import { AuthRequest } from '../middleware/auth';
@@ -10,20 +10,12 @@ import mongoose from 'mongoose';
 const createBookingSchema = Joi.object({
   spaceId: Joi.string().required(),
   contactId: Joi.string().allow('').optional(),
-  startTime: Joi.date().min('now').required(),
+  startTime: Joi.date().required(),
   endTime: Joi.date().greater(Joi.ref('startTime')).required(),
   
   // Customer Information (for non-contact bookings)
-  customerName: Joi.string().trim().max(100).when('contactId', {
-    is: Joi.exist().not(''),
-    then: Joi.optional(),
-    otherwise: Joi.required()
-  }),
-  customerEmail: Joi.string().email().when('contactId', {
-    is: Joi.exist().not(''),
-    then: Joi.optional(),
-    otherwise: Joi.required()
-  }),
+  customerName: Joi.string().trim().max(100).allow('').optional(),
+  customerEmail: Joi.string().email().allow('').optional(),
   customerPhone: Joi.string().trim().max(20).allow('').optional(),
   
   // Booking Details
@@ -71,7 +63,9 @@ const updateBookingSchema = Joi.object({
 });
 
 const availabilityQuerySchema = Joi.object({
-  date: Joi.date().min('now').required(),
+  date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required().messages({
+    'string.pattern.base': 'Date must be in YYYY-MM-DD format'
+  }),
   duration: Joi.number().integer().min(15).max(1440).default(60) // in minutes
 });
 
@@ -263,9 +257,19 @@ export const getBooking = async (req: AuthRequest, res: Response) => {
 
 // Create a new booking
 export const createBooking = async (req: AuthRequest, res: Response) => {
+  console.log('=== BOOKING CONTROLLER ENTRY ===');
+  
   try {
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
+    console.log('Request headers:', req.headers);
+    console.log('Has req.body:', !!req.body);
+    console.log('Has req.user:', !!req.user);
     console.log('=== CREATE BOOKING REQUEST ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request body raw:', req.body);
+    console.log('Request body stringified:', JSON.stringify(req.body, null, 2));
+    console.log('User ID:', req.user?._id);
+    console.log('User object:', req.user);
 
     const { error, value } = createBookingSchema.validate(req.body, {
       abortEarly: false,
@@ -273,7 +277,8 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     });
 
     if (error) {
-      console.error('Validation error:', error.details);
+      console.error('Booking validation error:', error.details);
+      console.error('Failed validation for:', JSON.stringify(req.body, null, 2));
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -281,6 +286,25 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
           field: detail.path.join('.'),
           message: detail.message
         }))
+      });
+    }
+
+    console.log('Validated booking data:', JSON.stringify(value, null, 2));
+
+    // Business logic validation: either contactId OR customer details required
+    const hasContact = value.contactId && value.contactId.trim() !== '';
+    const hasCustomerDetails = value.customerName && value.customerName.trim() !== '' && 
+                              value.customerEmail && value.customerEmail.trim() !== '';
+
+    if (!hasContact && !hasCustomerDetails) {
+      console.error('Neither contact nor customer details provided');
+      return res.status(400).json({
+        success: false,
+        message: 'Either contactId or customer details (name and email) must be provided',
+        errors: [{
+          field: 'customer',
+          message: 'Either select a contact or provide customer name and email'
+        }]
       });
     }
 
@@ -302,18 +326,21 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     }
 
     // Validate contact if provided
-    if (value.contactId) {
+    if (hasContact) {
+      console.log('Validating contact:', value.contactId);
       const contact = await Contact.findOne({
         _id: value.contactId,
         organizationId
       });
 
       if (!contact) {
+        console.error('Contact not found:', value.contactId);
         return res.status(404).json({
           success: false,
           message: 'Contact not found or does not belong to your organization'
         });
       }
+      console.log('Contact validated:', contact.firstName, contact.lastName);
     }
 
     // Check booking duration constraints
@@ -388,8 +415,12 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Generate unique booking reference
+    const bookingReference = 'BK' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
     const finalData = {
       ...value,
+      bookingReference,
       organizationId,
       paymentStatus: 'Pending',
       checkedIn: false,
@@ -418,19 +449,51 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error in createBooking:', error);
+    console.error('=== BOOKING CREATION ERROR ===');
+    console.error('Error type:', typeof error);
+    console.error('Error name:', error?.name);
+    console.error('Error message:', error?.message);
+    console.error('Error code:', error?.code);
+    console.error('Error stack:', error?.stack);
+    console.error('Full error object:', error);
     
+    // MongoDB duplicate key error
     if (error.code === 11000) {
+      console.error('Duplicate key error:', error.keyValue);
       return res.status(409).json({
         success: false,
         message: 'Booking reference already exists. Please try again.'
       });
     }
+    
+    // Mongoose validation error
+    if (error.name === 'ValidationError') {
+      console.error('Mongoose validation error:', error.errors);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+    
+    // Mongoose cast error (invalid ObjectId)
+    if (error.name === 'CastError') {
+      console.error('Cast error:', error.path, error.value);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid ${error.path}: ${error.value}`
+      });
+    }
 
+    // General server error
     res.status(500).json({
       success: false,
       message: 'Failed to create booking',
-      error: error.message
+      error: error.message || 'Unknown error',
+      errorName: error.name || 'UnknownError'
     });
   }
 };
@@ -632,6 +695,7 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
     console.log('=== CHECK SPACE AVAILABILITY REQUEST ===');
     console.log('Space ID:', spaceId);
     console.log('Query params:', req.query);
+    console.log('Organization ID:', organizationId);
 
     if (!mongoose.Types.ObjectId.isValid(spaceId)) {
       return res.status(400).json({
@@ -643,10 +707,35 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
     const { error, value } = availabilityQuerySchema.validate(req.query);
 
     if (error) {
+      console.error('Availability validation error:', error.details);
       return res.status(400).json({
         success: false,
         message: 'Invalid query parameters',
-        errors: error.details.map(detail => detail.message)
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    // Convert and validate date
+    const targetDate = new Date(value.date);
+    if (isNaN(targetDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format'
+      });
+    }
+
+    // Check if date is in the past
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    if (targetDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot check availability for past dates'
       });
     }
 
@@ -663,7 +752,6 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
       });
     }
 
-    const targetDate = new Date(value.date);
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     
@@ -719,6 +807,21 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
     res.json({
       success: true,
       data: {
+        spaceId: space._id,
+        date: targetDate.toISOString().split('T')[0],
+        duration: slotDuration,
+        isAvailable: availableSlots.length > 0,
+        availableSlots: availableSlots.map(slot => ({
+          startTime: slot.startTime.toISOString(),
+          endTime: slot.endTime.toISOString()
+        })),
+        conflictingBookings: existingBookings.map(booking => ({
+          bookingId: booking._id.toString(),
+          startTime: booking.startTime.toISOString(),
+          endTime: booking.endTime.toISOString(),
+          status: booking.status
+        })),
+        // Additional info for debugging
         space: {
           id: space._id,
           name: space.name,
@@ -726,17 +829,7 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
           minimumBookingDuration: space.minimumBookingDuration,
           maximumBookingDuration: space.maximumBookingDuration
         },
-        date: targetDate.toISOString().split('T')[0],
-        requestedDuration: slotDuration,
-        totalAvailableSlots: availableSlots.length,
-        availableSlots,
-        existingBookings: existingBookings.map(booking => ({
-          id: booking._id,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          status: booking.status,
-          reference: booking.bookingReference
-        }))
+        totalAvailableSlots: availableSlots.length
       }
     });
 

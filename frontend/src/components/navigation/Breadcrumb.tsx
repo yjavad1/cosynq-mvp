@@ -26,6 +26,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       'locations': 'Locations', 
       'spaces': 'Configure Spaces',
       'configure-spaces': 'Configure Spaces',
+      'bookings': 'Bookings',
       'onboarding': 'Onboarding',
       'forgot-password': 'Forgot Password',
       'reset-password': 'Reset Password'
@@ -35,16 +36,19 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       const href = '/' + pathnames.slice(0, index + 1).join('/');
       
       // Handle location-based routes differently
-      if (pathnames[index - 1] === 'locations' && pathnames[index + 1] === 'spaces') {
+      if (pathnames[index - 1] === 'locations' && (pathnames[index + 1] === 'spaces' || pathnames[index + 1] === 'bookings')) {
         // This is a locationId, skip it or show location name
         return;
       }
       
       let label = routeMap[path] || path.charAt(0).toUpperCase() + path.slice(1);
       
-      // Special handling for location-based spaces
+      // Special handling for location-based routes
       if (path === 'spaces' && pathnames[index - 2] === 'locations') {
         label = 'Configure Spaces';
+      }
+      if (path === 'bookings' && pathnames[index - 2] === 'locations') {
+        label = 'Bookings';
       }
       
       const isCurrentPage = index === pathnames.length - 1;

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ProductType, IProductType, ProductTypeCategory, PricingType, AccessLevel } from '../models/ProductType';
+import { ProductType, IProductType, ProductTypeCategory } from '../models/ProductType';
 import { Location } from '../models/Location';
 import { Space } from '../models/Space';
 import { AuthRequest } from '../middleware/auth';
@@ -449,7 +449,7 @@ class ProductTypeController {
     productType: IProductType,
     count: number,
     userId: mongoose.Types.ObjectId,
-    location: any
+    _location: any
   ): Promise<any[]> {
     const spaces = [];
     const { naming } = productType.autoGeneration;

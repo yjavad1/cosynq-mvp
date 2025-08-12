@@ -33,7 +33,7 @@ console.log('✅ Booking routes registered at /api/bookings');
 router.use('/onboarding', onboardingRoutes);
 console.log('✅ Onboarding routes registered at /api/onboarding');
 
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   res.json({ 
     success: true, 
     message: 'Cosynq API is running',

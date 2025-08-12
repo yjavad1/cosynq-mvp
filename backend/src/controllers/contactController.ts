@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Contact, IContact, ContactType, ContextState } from '../models/Contact';
+import { Contact, ContactType, ContextState } from '../models/Contact';
 import { AuthRequest } from '../middleware/auth';
 import AIContextService from '../services/aiContextService';
 import Joi from 'joi';

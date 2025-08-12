@@ -15,6 +15,7 @@ import PasswordResetPage from './pages/PasswordResetPage'
 import SpaceConfigurationPage from './pages/SpaceConfigurationPage'
 import LocationSpacesPage from './pages/LocationSpacesPage'
 import LocationDetailPage from './pages/LocationDetailPage'
+import BookingsPage from './pages/BookingsPage'
 
 const queryClient = new QueryClient()
 
@@ -131,6 +132,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <LocationSpacesPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
+                path="/locations/:locationId/bookings" 
+                element={
+                  <ProtectedRoute>
+                    <BookingsPage />
                   </ProtectedRoute>
                 } 
               />

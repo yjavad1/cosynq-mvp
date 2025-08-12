@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Space, ISpace, SpaceType, SpaceStatus } from '../models/Space';
+import { Space, SpaceType, SpaceStatus } from '../models/Space';
 import { AuthRequest } from '../middleware/auth';
 import Joi from 'joi';
 import mongoose from 'mongoose';

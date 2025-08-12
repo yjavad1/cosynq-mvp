@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { User, IUser } from '../models/User';
+import { User } from '../models/User';
 import { generateToken, generateRefreshToken } from '../utils/jwt';
 import { AuthRequest } from '../middleware/auth';
 import Joi from 'joi';
@@ -184,7 +184,7 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const logout = async (req: AuthRequest, res: Response) => {
+export const logout = async (_req: AuthRequest, res: Response) => {
   try {
     res.json({
       success: true,

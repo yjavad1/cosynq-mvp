@@ -11,7 +11,8 @@ import {
   Plus,
   TrendingUp,
   Bell,
-  Search
+  Search,
+  Calendar
 } from 'lucide-react';
 import { SetupWizard } from '../components/setup/SetupWizard';
 import { IncompleteSetupBanner } from '../components/onboarding/IncompleteSetupBanner';
@@ -20,6 +21,7 @@ import { SetupProgressCard } from '../components/dashboard/SetupProgressCard';
 import { useContactStats } from '../hooks/useContacts';
 import { useLocationStats, useLocations } from '../hooks/useLocations';
 import { useSpaceStats } from '../hooks/useSpaces';
+import { useBookingStats } from '../hooks/useBookings';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import { Location } from '@shared/types';
 
@@ -49,6 +51,7 @@ const DashboardPage: React.FC = () => {
   const { data: locationStats, isLoading: locationStatsLoading, error: locationStatsError } = useLocationStats();
   const { data: locationsData, isLoading: locationsLoading } = useLocations({ limit: 4 });
   const { data: spaceStats } = useSpaceStats();
+  const { data: bookingStats } = useBookingStats();
 
 
   const handleLogout = async () => {
@@ -163,7 +166,7 @@ const DashboardPage: React.FC = () => {
           /* Main Dashboard - Setup Complete */
           <div className="space-y-8">
             {/* Top Stats Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -196,6 +199,18 @@ const DashboardPage: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Spaces</p>
                     <p className="text-2xl font-bold text-gray-900">{spaceStats?.totalSpaces || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <Calendar className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                    <p className="text-2xl font-bold text-gray-900">{bookingStats?.totalBookings || 0}</p>
                   </div>
                 </div>
               </div>
