@@ -16,12 +16,12 @@ import {
 } from 'lucide-react';
 import { SetupWizard } from '../components/setup/SetupWizard';
 import { IncompleteSetupBanner } from '../components/onboarding/IncompleteSetupBanner';
-import { DashboardLocationCard } from '../components/dashboard/LocationCard';
+import { EnhancedLocationCard } from '../components/dashboard/EnhancedLocationCard';
 import { SetupProgressCard } from '../components/dashboard/SetupProgressCard';
 import { useContactStats } from '../hooks/useContacts';
 import { useLocationStats, useLocations } from '../hooks/useLocations';
 import { useSpaceStats } from '../hooks/useSpaces';
-import { useBookingStats } from '../hooks/useBookings';
+import { useBookings, useBookingStats } from '../hooks/useBookings';
 import { useOnboardingStatus } from '../hooks/useOnboardingStatus';
 import { Location } from '@shared/types';
 
@@ -52,6 +52,10 @@ const DashboardPage: React.FC = () => {
   const { data: locationsData, isLoading: locationsLoading } = useLocations({ limit: 4 });
   const { data: spaceStats } = useSpaceStats();
   const { data: bookingStats } = useBookingStats();
+  const { data: bookingsData } = useBookings({ limit: 1000 }); // Get all bookings for calculations
+
+  // Calculate total revenue from bookings
+  const totalRevenue = bookingsData?.bookings?.reduce((sum, booking) => sum + booking.totalAmount, 0) || 0;
 
 
   const handleLogout = async () => {
@@ -222,7 +226,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">₹{(Math.random() * 100000 + 50000).toFixed(0)}</p>
+                    <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -270,15 +274,11 @@ const DashboardPage: React.FC = () => {
                       </button>
                     </div>
                   ) : locationsData?.locations && locationsData.locations.length > 0 ? (
-                    // Has locations - show cards from actual location data
-                    locationsData.locations.slice(0, 4).map((location: Location, index: number) => (
-                      <DashboardLocationCard
+                    // Has locations - show cards with real booking data
+                    locationsData.locations.slice(0, 4).map((location: Location) => (
+                      <EnhancedLocationCard
                         key={location._id}
                         location={location}
-                        spaceCount={Math.floor(Math.random() * 15) + 3}
-                        setupProgress={60 + (index * 15) + Math.floor(Math.random() * 20)}
-                        monthlyRevenue={Math.floor(Math.random() * 50000) + 25000}
-                        totalBookings={Math.floor(Math.random() * 50) + 10}
                       />
                     ))
                   ) : (

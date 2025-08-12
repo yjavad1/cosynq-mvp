@@ -4,8 +4,10 @@ import { format, addDays } from 'date-fns';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
-import { useCreateBooking, useSpaceAvailability } from '../../hooks/useBookings';
-import { CreateBookingData } from '../../services/bookingApi';
+import { useCreateBooking, useUpdateBooking, useSpaceAvailability } from '../../hooks/useBookings';
+// import { useBookingAvailabilityCheck, formatConflictMessage } from '../../hooks/useBookingAvailability';
+// import { ConflictResult } from '../../services/bookingAvailability';
+import { CreateBookingData, BookingData } from '../../services/bookingApi';
 
 interface BookingFormProps {
   locationId: string;
@@ -14,6 +16,9 @@ interface BookingFormProps {
   onSuccess: () => void;
   prefilledSpaceId?: string;
   prefilledDate?: Date;
+  // Edit mode props
+  isEditing?: boolean;
+  existingBooking?: BookingData;
 }
 
 interface BookingFormData {
@@ -31,13 +36,24 @@ interface BookingFormData {
   notes?: string;
 }
 
+// Enhanced Availability Display Component - Temporarily disabled
+// function EnhancedAvailabilityDisplay({ availability }: { availability: ConflictResult }) {
+//   return (
+//     <div className="space-y-3">
+//       {/* Implementation temporarily commented out for deployment */}
+//     </div>
+//   );
+// }
+
 export function BookingForm({ 
   locationId: _locationId, // Available but not currently used for filtering
   isOpen, 
   onClose, 
   onSuccess, 
   prefilledSpaceId, 
-  prefilledDate 
+  prefilledDate,
+  isEditing = false,
+  existingBooking
 }: BookingFormProps) {
   const [contactSearch, setContactSearch] = useState('');
   const [selectedContact, setSelectedContact] = useState<any>(null);
@@ -53,7 +69,20 @@ export function BookingForm({
     formState: { errors, isSubmitting },
     reset
   } = useForm<BookingFormData>({
-    defaultValues: {
+    defaultValues: isEditing && existingBooking ? {
+      contactId: (typeof existingBooking.contactId === 'object' ? existingBooking.contactId?._id : existingBooking.contactId) || '',
+      customerName: existingBooking.customerName || '',
+      customerEmail: existingBooking.customerEmail || '',
+      customerPhone: existingBooking.customerPhone || '',
+      spaceId: (typeof existingBooking.spaceId === 'object' ? existingBooking.spaceId?._id : existingBooking.spaceId) || '',
+      date: format(new Date(existingBooking.startTime), 'yyyy-MM-dd'),
+      startTime: format(new Date(existingBooking.startTime), 'HH:mm'),
+      endTime: format(new Date(existingBooking.endTime), 'HH:mm'),
+      attendeeCount: existingBooking.attendeeCount,
+      purpose: existingBooking.purpose || '',
+      specialRequests: existingBooking.specialRequests || '',
+      notes: existingBooking.notes || ''
+    } : {
       spaceId: prefilledSpaceId || '',
       date: prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       startTime: '09:00',
@@ -80,7 +109,28 @@ export function BookingForm({
     limit: 100
   });
 
-  // Availability checking
+  // Enhanced availability checking with validation
+  // const availabilityRequest = useMemo(() => {
+  //   if (!spaceId || !date || !startTime || !endTime) return null;
+    
+  //   const startDateTime = new Date(`${date}T${startTime}:00`);
+  //   const endDateTime = new Date(`${date}T${endTime}:00`);
+    
+  //   return {
+  //     spaceId,
+  //     startTime: startDateTime,
+  //     endTime: endDateTime,
+  //     excludeBookingId: isEditing ? existingBooking?._id : undefined,
+  //     checkBusinessRules: true
+  //   };
+  // }, [spaceId, date, startTime, endTime, isEditing, existingBooking?._id]);
+
+  // const { 
+  //   data: enhancedAvailability, 
+  //   isLoading: enhancedAvailabilityLoading 
+  // } = useBookingAvailabilityCheck(availabilityRequest);
+
+  // Fallback to legacy availability check
   const { 
     data: availabilityData, 
     isLoading: availabilityLoading 
@@ -92,6 +142,17 @@ export function BookingForm({
 
   // Mutations
   const createBookingMutation = useCreateBooking();
+  const updateBookingMutation = useUpdateBooking();
+
+  // Handle edit mode initialization
+  useEffect(() => {
+    if (isEditing && existingBooking && isOpen) {
+      // Set selected contact if editing and booking has a contact
+      if (existingBooking.contactId && typeof existingBooking.contactId === 'object') {
+        setSelectedContact(existingBooking.contactId);
+      }
+    }
+  }, [isEditing, existingBooking, isOpen]);
 
   // Generate time slots (30-minute intervals from 8 AM to 8 PM)
   const timeSlots = useMemo(() => {
@@ -169,7 +230,13 @@ export function BookingForm({
   // Handle form submission
   const onSubmit = async (data: BookingFormData) => {
     try {
-      // Validate availability one more time before submission
+      // Enhanced validation before submission
+      // const availabilityCheck = enhancedAvailability as ConflictResult | undefined;
+      // if (availabilityCheck?.hasConflict) {
+      //   const conflictMessages = formatConflictMessage(availabilityCheck);
+      //   setAvailabilityError(conflictMessages[0] || 'Selected time slot is not available');
+      //   return;
+      // } else 
       if (!availabilityData?.isAvailable) {
         setAvailabilityError('Selected time slot is not available');
         return;
@@ -199,7 +266,16 @@ export function BookingForm({
         currency: 'USD'
       };
 
-      await createBookingMutation.mutateAsync(bookingData);
+      if (isEditing && existingBooking) {
+        // Update existing booking
+        await updateBookingMutation.mutateAsync({
+          id: existingBooking._id,
+          bookingData: bookingData as any // UpdateBookingData has similar structure
+        });
+      } else {
+        // Create new booking
+        await createBookingMutation.mutateAsync(bookingData);
+      }
 
       // Reset form and close
       reset();
@@ -231,8 +307,12 @@ export function BookingForm({
                     <Calendar className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">Create New Booking</h3>
-                    <p className="text-sm text-gray-600">Schedule a space reservation</p>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {isEditing ? 'Edit Booking' : 'Create New Booking'}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {isEditing ? 'Update booking details' : 'Schedule a space reservation'}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -501,30 +581,33 @@ export function BookingForm({
                     </div>
                   )}
 
-                  {/* Availability Status */}
+                  {/* Enhanced Availability Status */}
                   {spaceId && date && startTime && endTime && (
-                    <div className="p-4 border rounded-lg">
-                      {availabilityLoading || availabilityChecking ? (
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                          <span className="text-sm">Checking availability...</span>
-                        </div>
-                      ) : availabilityError ? (
-                        <div className="flex items-center space-x-2 text-red-600">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm">{availabilityError}</span>
-                        </div>
-                      ) : availabilityData?.isAvailable ? (
-                        <div className="flex items-center space-x-2 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="text-sm">Time slot is available</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2 text-red-600">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm">Time slot is not available</span>
-                        </div>
-                      )}
+                    <div className="space-y-3">
+                      {/* Primary Availability Check */}
+                      <div className="p-4 border rounded-lg">
+                        {availabilityLoading || availabilityChecking ? (
+                          <div className="flex items-center space-x-2 text-gray-600">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                            <span className="text-sm">Checking availability...</span>
+                          </div>
+                        ) : availabilityError ? (
+                          <div className="flex items-center space-x-2 text-red-600">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm">{availabilityError}</span>
+                          </div>
+                        ) : availabilityData?.isAvailable ? (
+                          <div className="flex items-center space-x-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm">Time slot is available</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-red-600">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm">Time slot is not available</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -565,10 +648,15 @@ export function BookingForm({
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isSubmitting || !availabilityData?.isAvailable || !!availabilityError}
+                disabled={
+                  isSubmitting || 
+                  !availabilityData?.isAvailable || 
+                  !!availabilityError ||
+                  availabilityLoading
+                }
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Creating...' : 'Create Booking'}
+                {isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Booking' : 'Create Booking')}
               </button>
               <button
                 type="button"

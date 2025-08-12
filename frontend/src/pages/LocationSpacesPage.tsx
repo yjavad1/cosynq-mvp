@@ -17,11 +17,17 @@ import {
   Plus,
   Minus,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  Trash2,
+  MoreVertical,
+  Settings
 } from 'lucide-react';
 import { useLocation as useLocationById } from '../hooks/useLocations';
-import { useProductTypes, useCreateProductType, useGenerateSpaces } from '../hooks/useProductTypes';
+import { useProductTypes, useCreateProductType, useUpdateProductType, useDeleteProductType, useGenerateSpaces } from '../hooks/useProductTypes';
 import { ProductTypeCategory, CreateProductTypeData } from '@shared/types';
+import { DeleteSpaceTypeDialog } from '../components/spaces/DeleteSpaceTypeDialog';
+import { SpaceTypeForm } from '../components/spaces/SpaceTypeForm';
 
 interface SpaceProduct {
   id: string;
@@ -144,6 +150,11 @@ export default function LocationSpacesPage() {
   const navigate = useNavigate();
   const { data: location, isLoading: locationLoading } = useLocationById(locationId!);
   
+  // Debug component mount and state
+  console.log("🏗️ LocationSpacesPage mounted");
+  console.log("📍 Location ID from params:", locationId);
+  console.log("🏢 Location data:", location);
+  
   // Check for existing product types for this location
   const { data: existingProductTypes, isLoading: productTypesLoading } = useProductTypes({
     locationId: locationId!,
@@ -157,9 +168,15 @@ export default function LocationSpacesPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showConfiguration, setShowConfiguration] = useState(false);
+  const [editingProductType, setEditingProductType] = useState<any>(null);
+  const [deletingProductType, setDeletingProductType] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
 
   // Mutations
   const createProductType = useCreateProductType();
+  const updateProductType = useUpdateProductType();
+  const deleteProductType = useDeleteProductType();
   const generateSpaces = useGenerateSpaces();
   
   const isSaving = createProductType.isPending || generateSpaces.isPending;
@@ -363,6 +380,73 @@ export default function LocationSpacesPage() {
     }
   };
 
+  // Handle edit product type
+  const handleEditProductType = (productType: any) => {
+    setEditingProductType(productType);
+    setShowEditForm(true);
+  };
+
+  // Handle delete product type
+  const handleDeleteProductType = (productType: any) => {
+    setDeletingProductType(productType);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm deletion
+  const confirmDeleteProductType = async () => {
+    if (!deletingProductType) return;
+    
+    try {
+      await deleteProductType.mutateAsync(deletingProductType._id);
+      setShowDeleteConfirm(false);
+      setDeletingProductType(null);
+    } catch (error: any) {
+      console.error('Error deleting product type:', error);
+      setSaveError(error.response?.data?.message || 'Failed to delete space type. It may have active bookings.');
+    }
+  };
+
+  // Cancel delete
+  const cancelDeleteProductType = () => {
+    setShowDeleteConfirm(false);
+    setDeletingProductType(null);
+  };
+
+  // Handle save from edit form
+  const handleSaveSpaceType = async (formData: CreateProductTypeData) => {
+    try {
+      if (editingProductType) {
+        // Update existing product type
+        await updateProductType.mutateAsync({
+          id: editingProductType._id,
+          productTypeData: formData
+        });
+      } else {
+        // Create new product type
+        await createProductType.mutateAsync(formData);
+      }
+      setShowEditForm(false);
+      setEditingProductType(null);
+      setSaveError(null);
+    } catch (error: any) {
+      console.error('Error saving space type:', error);
+      setSaveError(error.response?.data?.message || 'Failed to save space type. Please try again.');
+    }
+  };
+
+  // Handle close edit form
+  const handleCloseEditForm = () => {
+    setShowEditForm(false);
+    setEditingProductType(null);
+  };
+
+  // Handle modify spaces click - Navigate to dedicated page
+  const handleModifySpaces = () => {
+    console.log("🔥 MODIFY SPACES CLICKED - Navigating to dedicated page");
+    console.log("📍 Location ID:", locationId);
+    navigate(`/locations/${locationId}/spaces/manage`);
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'workspace': return 'from-blue-500 to-indigo-600';
@@ -443,20 +527,56 @@ export default function LocationSpacesPage() {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Configured Space Types</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {productTypes.map((productType: any) => (
-              <div key={productType._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
+              <div key={productType._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative group">
+                {/* Actions dropdown */}
+                <div className="absolute top-3 right-3">
+                  <div className="relative">
+                    <button
+                      className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const button = e.currentTarget;
+                        const dropdown = button.nextElementSibling as HTMLElement;
+                        if (dropdown) {
+                          dropdown.classList.toggle('hidden');
+                        }
+                      }}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 hidden z-10">
+                      <button
+                        onClick={() => handleEditProductType(productType)}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Edit className="h-3 w-3 mr-2" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProductType(productType)}
+                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-2 pr-8">
                   <h4 className="font-medium text-gray-900">{productType.name}</h4>
                   <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                     Active
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mb-2">{productType.description}</p>
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
                   <span>Capacity: {productType.capacity?.optimalCapacity || 'N/A'}</span>
                   <span>₹{productType.pricing?.basePrice || 0}/hr</span>
                 </div>
-                <div className="mt-2">
-                  <span className="text-xs text-blue-600 font-medium">Code: {productType.code}</span>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-blue-600 font-medium">Code: {productType.code}</span>
+                  <span className="text-gray-500">Spaces: {productType.generatedSpacesCount || 0}</span>
                 </div>
               </div>
             ))}
@@ -466,11 +586,11 @@ export default function LocationSpacesPage() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={() => setShowConfiguration(true)}
+            onClick={handleModifySpaces}
             className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add More Space Types
+            <Settings className="h-4 w-4 mr-2" />
+            Modify Spaces
           </button>
           
           <button
@@ -879,6 +999,30 @@ export default function LocationSpacesPage() {
           transform: scale(1.02);
         }
       `}</style>
+      
+      {/* Delete Confirmation Dialog */}
+      <DeleteSpaceTypeDialog
+        isOpen={showDeleteConfirm}
+        onClose={cancelDeleteProductType}
+        onConfirm={confirmDeleteProductType}
+        spaceTypeName={deletingProductType?.name || ''}
+        spaceCount={deletingProductType?.generatedSpacesCount || 0}
+        productTypeId={deletingProductType?._id}
+        isLoading={deleteProductType.isPending}
+      />
+
+      {/* Edit/Create Space Type Form */}
+      <SpaceTypeForm
+        isOpen={showEditForm}
+        onClose={handleCloseEditForm}
+        onSave={handleSaveSpaceType}
+        editingProductType={editingProductType}
+        locationId={locationId!}
+        isLoading={updateProductType.isPending || createProductType.isPending}
+      />
+
+      {/* Space Management Interface */}
+      {/* No modal needed - using page-based navigation */}
     </div>
   );
 }

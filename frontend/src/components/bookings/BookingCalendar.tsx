@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Views, View, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -35,6 +35,7 @@ interface BookingCalendarProps {
   onSlotClick?: (slotInfo: { start: Date; end: Date; action: 'select' | 'click' | 'doubleClick' }) => void;
   viewMode?: View;
   className?: string;
+  showCancelled?: boolean; // Control visibility of cancelled bookings
 }
 
 interface CalendarEvent {
@@ -61,30 +62,66 @@ export function BookingCalendar({
   onEventClick, 
   onSlotClick,
   viewMode = Views.MONTH,
-  className = ''
+  className = '',
+  showCancelled = false
 }: BookingCalendarProps) {
   const [currentView, setCurrentView] = useState<View>(viewMode);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [internalShowCancelled, setInternalShowCancelled] = useState(showCancelled);
+
+  // Calculate date range for current view
+  const dateRange = useMemo(() => {
+    const startDate = format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd');
+    const endDate = format(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0), 'yyyy-MM-dd');
+    console.log('📅 Calendar fetching bookings for range:', { startDate, endDate, spaceId });
+    return { startDate, endDate };
+  }, [currentDate]);
 
   // Fetch bookings with filters
   const { 
     data: bookingsData, 
     isLoading, 
     isError, 
-    error 
+    error,
+    refetch: refetchBookings
   } = useBookings({
     spaceId,
-    startDate: format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd'),
-    endDate: format(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0), 'yyyy-MM-dd'),
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     sortBy: 'startTime',
     sortOrder: 'asc'
   });
 
+  // Add window event listener for manual calendar refresh
+  useEffect(() => {
+    const handleBookingCreated = () => {
+      console.log('📅 Calendar received booking created event - force refreshing...');
+      refetchBookings();
+    };
+
+    window.addEventListener('bookingCreated', handleBookingCreated);
+    return () => window.removeEventListener('bookingCreated', handleBookingCreated);
+  }, [refetchBookings]);
+
   // Transform bookings for calendar display
   const calendarEvents = useMemo(() => {
-    if (!bookingsData?.bookings) return [];
-    return transformBookingsForCalendar(bookingsData.bookings);
-  }, [bookingsData]);
+    if (!bookingsData?.bookings) {
+      console.log('📅 Calendar: No bookings data available');
+      return [];
+    }
+    console.log(`📅 Calendar: Transforming ${bookingsData.bookings.length} bookings for display`);
+    console.log('📅 Calendar bookings:', bookingsData.bookings.map(b => ({
+      id: b._id,
+      ref: b.bookingReference,
+      start: b.startTime,
+      end: b.endTime,
+      customer: b.customerName,
+      status: b.status
+    })));
+    const transformedEvents = transformBookingsForCalendar(bookingsData.bookings, internalShowCancelled);
+    console.log(`📅 Calendar: Filtered to ${transformedEvents.length} events (showCancelled: ${internalShowCancelled})`);
+    return transformedEvents;
+  }, [bookingsData, internalShowCancelled]);
 
   // Custom event styling based on booking status
   const eventStyleGetter = useCallback((event: CalendarEvent) => {
@@ -181,6 +218,7 @@ export function BookingCalendar({
       </div>
 
       <div className="flex items-center space-x-2">
+        {/* View Buttons */}
         {['month', 'week', 'day'].map((view) => (
           <button
             key={view}
@@ -194,6 +232,21 @@ export function BookingCalendar({
             {view.charAt(0).toUpperCase() + view.slice(1)}
           </button>
         ))}
+        
+        {/* Show Cancelled Toggle */}
+        <div className="border-l border-gray-200 pl-2 ml-2">
+          <button
+            onClick={() => setInternalShowCancelled(!internalShowCancelled)}
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
+              internalShowCancelled
+                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            title={internalShowCancelled ? 'Hide cancelled bookings' : 'Show cancelled bookings'}
+          >
+            <span>{internalShowCancelled ? 'Hide' : 'Show'} Cancelled</span>
+          </button>
+        </div>
       </div>
     </div>
   );

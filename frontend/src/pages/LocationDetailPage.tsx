@@ -1,11 +1,28 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Settings, BarChart3, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin, Settings, BarChart3, Calendar, DollarSign, Users, TrendingUp, Clock } from 'lucide-react';
 import { Breadcrumb } from '../components/navigation/Breadcrumb';
 import { useLocation } from '../hooks/useLocations';
+import { useLocationBookingStats } from '../hooks/useBookings';
+import { useSpaces } from '../hooks/useSpaces';
 
 export default function LocationDetailPage() {
   const { locationId } = useParams<{ locationId: string }>();
   const { data: location, isLoading } = useLocation(locationId!);
+  
+  // Get booking statistics for this location
+  const bookingStats = useLocationBookingStats(locationId);
+  
+  // Get all spaces (they will be filtered by location on the backend based on user's organization)
+  const { data: spacesData } = useSpaces({ limit: 1000 });
+  
+  // Filter spaces for this location on the frontend
+  const locationSpaces = spacesData?.spaces?.filter(space => {
+    if (typeof space.locationId === 'object' && space.locationId && '_id' in space.locationId) {
+      return (space.locationId as any)._id === locationId;
+    }
+    return space.locationId === locationId;
+  }) || [];
+  const spaceCount = locationSpaces.length;
 
   if (isLoading) {
     return (
@@ -58,6 +75,109 @@ export default function LocationDetailPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb Navigation */}
         <Breadcrumb />
+        
+        {/* Booking Analytics Dashboard */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Booking Analytics</h2>
+          
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                  <p className="text-2xl font-bold text-gray-900">{bookingStats.totalBookings}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{bookingStats.totalRevenue.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">This Month</p>
+                  <p className="text-2xl font-bold text-gray-900">₹{bookingStats.thisMonthRevenue.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Upcoming</p>
+                  <p className="text-2xl font-bold text-gray-900">{bookingStats.upcomingBookings}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Today's Activity */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Clock className="h-5 w-5 mr-2 text-blue-600" />
+                Today's Activity
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Bookings</span>
+                  <span className="font-semibold text-gray-900">{bookingStats.todayBookings}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Revenue</span>
+                  <span className="font-semibold text-gray-900">₹{bookingStats.todayRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Avg. Booking Value</span>
+                  <span className="font-semibold text-gray-900">₹{bookingStats.averageBookingValue.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Space Overview */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Users className="h-5 w-5 mr-2 text-green-600" />
+                Space Overview
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total Spaces</span>
+                  <span className="font-semibold text-gray-900">{spaceCount}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">This Week</span>
+                  <span className="font-semibold text-gray-900">{bookingStats.thisWeekBookings} bookings</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Week Revenue</span>
+                  <span className="font-semibold text-gray-900">₹{bookingStats.thisWeekRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         {/* Location Management Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
