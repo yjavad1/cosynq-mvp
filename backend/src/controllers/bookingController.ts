@@ -138,30 +138,70 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
       filter.status = status;
     }
 
-    // Date range filter
+    // Date range filter - tolerant to both start/end and startTime/endTime fields
+    let dateRangeFilter: any = {};
     if (startDate || endDate) {
-      filter.startTime = {};
-      if (startDate) {
-        filter.startTime.$gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        filter.startTime.$lte = new Date(endDate as string);
+      const fromDate = startDate ? new Date(startDate as string) : null;
+      const toDate = endDate ? new Date(endDate as string) : null;
+      
+      if (fromDate && toDate) {
+        // Range overlap query supporting both field naming conventions
+        dateRangeFilter = {
+          $or: [
+            // Modern field names (start/end) - preferred
+            { start: { $lt: toDate }, end: { $gt: fromDate } },
+            // Legacy field names (startTime/endTime) - fallback
+            { startTime: { $gte: fromDate, $lte: toDate } }
+          ]
+        };
+      } else if (fromDate) {
+        dateRangeFilter = {
+          $or: [
+            { start: { $gte: fromDate } },
+            { startTime: { $gte: fromDate } }
+          ]
+        };
+      } else if (toDate) {
+        dateRangeFilter = {
+          $or: [
+            { end: { $lte: toDate } },
+            { endTime: { $lte: toDate } }
+          ]
+        };
       }
     }
 
     // Search functionality
+    let searchFilter: any = {};
     if (search) {
-      filter.$or = [
-        { customerName: new RegExp(search as string, 'i') },
-        { customerEmail: new RegExp(search as string, 'i') },
-        { purpose: new RegExp(search as string, 'i') },
-        { bookingReference: new RegExp(search as string, 'i') }
-      ];
+      searchFilter = {
+        $or: [
+          { customerName: new RegExp(search as string, 'i') },
+          { customerEmail: new RegExp(search as string, 'i') },
+          { purpose: new RegExp(search as string, 'i') },
+          { bookingReference: new RegExp(search as string, 'i') }
+        ]
+      };
     }
 
-    // Build sort object
+    // Combine filters properly
+    if (Object.keys(dateRangeFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter = { ...filter, ...dateRangeFilter, ...searchFilter };
+    } else if (Object.keys(dateRangeFilter).length > 0) {
+      filter = { ...filter, ...dateRangeFilter };
+    } else if (Object.keys(searchFilter).length > 0) {
+      filter = { ...filter, ...searchFilter };
+    }
+
+    // Build sort object - tolerant to both field naming conventions
     const sortObj: any = {};
-    sortObj[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === 'startTime') {
+      // Sort by both start and startTime fields to handle mixed data
+      sortObj.start = sortOrder === 'desc' ? -1 : 1;
+      sortObj.startTime = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      sortObj[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+    }
 
     console.log('Filter applied:', JSON.stringify(filter, null, 2));
 
@@ -183,10 +223,20 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
 
     console.log(`Found ${bookings.length} bookings out of ${total} total`);
 
+    // Normalize response fields to ensure both startTime/endTime and start/end are available
+    const normalizedBookings = bookings.map((booking: any) => ({
+      ...booking,
+      // Ensure both field naming conventions are available
+      startTime: booking.startTime || booking.start,
+      endTime: booking.endTime || booking.end,
+      start: booking.start || booking.startTime,
+      end: booking.end || booking.endTime
+    }));
+
     res.json({
       success: true,
       data: {
-        bookings,
+        bookings: normalizedBookings,
         pagination: {
           currentPage: pageNum,
           totalPages,
@@ -270,6 +320,16 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     console.log('Request body stringified:', JSON.stringify(req.body, null, 2));
     console.log('User ID:', req.user?._id);
     console.log('User object:', req.user);
+
+    // Tolerant mapping for legacy keys (safety net)
+    if (!req.body.startTime && req.body.start) {
+      console.log('🔄 Mapping legacy field: start -> startTime');
+      req.body.startTime = req.body.start;
+    }
+    if (!req.body.endTime && req.body.end) {
+      console.log('🔄 Mapping legacy field: end -> endTime');
+      req.body.endTime = req.body.end;
+    }
 
     const { error, value } = createBookingSchema.validate(req.body, {
       abortEarly: false,
@@ -433,7 +493,15 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     const booking = new Booking(finalData);
     await booking.save();
 
-    console.log('Booking created successfully:', booking.bookingReference);
+    console.log('✅ BOOKING_CREATED:', JSON.stringify({
+      action: 'booking_created',
+      bookingRef: booking.bookingReference,
+      _id: booking._id.toString(),
+      spaceId: booking.spaceId.toString(),
+      start: booking.startTime.toISOString(),
+      end: booking.endTime.toISOString(),
+      orgId: booking.organizationId.toString()
+    }));
 
     // Populate the created booking for response
     const populatedBooking = await Booking.findById(booking._id)
@@ -442,10 +510,20 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       .populate('createdBy', 'firstName lastName')
       .populate('updatedBy', 'firstName lastName');
 
+    // Normalize response fields to ensure both field naming conventions are available
+    const normalizedBooking = populatedBooking ? {
+      ...populatedBooking.toObject(),
+      // Ensure both field naming conventions are available
+      startTime: populatedBooking.startTime,
+      endTime: populatedBooking.endTime,
+      start: populatedBooking.startTime,
+      end: populatedBooking.endTime
+    } : booking;
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
-      data: { booking: populatedBooking }
+      data: { booking: normalizedBooking }
     });
 
   } catch (error: any) {

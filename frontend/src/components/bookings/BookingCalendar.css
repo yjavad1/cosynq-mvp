@@ -55,13 +55,21 @@
   padding: 2px 6px;
   margin: 1px 2px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .booking-calendar .rbc-event:hover {
-  opacity: 0.85;
+  opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.booking-calendar .rbc-event:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 }
 
 .booking-calendar .rbc-event-label {

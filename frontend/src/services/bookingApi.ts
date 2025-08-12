@@ -7,8 +7,8 @@ export type PaymentStatus = 'Pending' | 'Paid' | 'Refunded' | 'Failed';
 export interface BookingData {
   _id: string;
   organizationId: string;
-  spaceId: string;
-  contactId?: string;
+  spaceId: string | { _id: string; name: string; locationId: string; [key: string]: any };
+  contactId?: string | { _id: string; firstName: string; lastName: string; [key: string]: any };
   
   // Booking Details
   startTime: string;
@@ -181,6 +181,9 @@ class BookingApiService {
       withCredentials: true,
     });
 
+    // Log API base URL for debugging
+    console.log('🔧 BookingApiService initialized with base URL:', API_BASE_URL);
+
     // Request interceptor to add authentication token
     this.api.interceptors.request.use(
       (config) => {
@@ -275,6 +278,7 @@ class BookingApiService {
       });
     }
     const queryString = queryParams.toString();
+    console.log('📍 GET BOOKINGS - Target URL:', `${this.api.defaults.baseURL}/bookings${queryString ? `?${queryString}` : ''}`);
     return this.api.get(`/bookings${queryString ? `?${queryString}` : ''}`);
   }
 
@@ -283,6 +287,7 @@ class BookingApiService {
   }
 
   async createBooking(bookingData: CreateBookingData): Promise<AxiosResponse<ApiResponse<{ booking: BookingData }>>> {
+    console.log('📍 CREATE BOOKING - Target URL:', `${this.api.defaults.baseURL}/bookings`);
     console.log('Creating booking with data:', JSON.stringify(bookingData, null, 2));
     return this.api.post('/bookings', bookingData);
   }

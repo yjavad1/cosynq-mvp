@@ -16,6 +16,9 @@ import SpaceConfigurationPage from './pages/SpaceConfigurationPage'
 import LocationSpacesPage from './pages/LocationSpacesPage'
 import LocationDetailPage from './pages/LocationDetailPage'
 import BookingsPage from './pages/BookingsPage'
+import SpaceManagementPage from './pages/SpaceManagementPage'
+import TestButtonPage from './pages/TestButtonPage'
+import AvailabilityTestPage from './pages/AvailabilityTestPage'
 
 const queryClient = new QueryClient()
 
@@ -137,10 +140,31 @@ function App() {
               />
 
               <Route 
+                path="/locations/:locationId/spaces/manage" 
+                element={
+                  <ProtectedRoute>
+                    <SpaceManagementPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              <Route 
                 path="/locations/:locationId/bookings" 
                 element={
                   <ProtectedRoute>
                     <BookingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Test Routes */}
+              <Route path="/test-button" element={<TestButtonPage />} />
+              
+              <Route 
+                path="/test-availability" 
+                element={
+                  <ProtectedRoute>
+                    <AvailabilityTestPage />
                   </ProtectedRoute>
                 } 
               />
