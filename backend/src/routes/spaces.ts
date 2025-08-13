@@ -6,7 +6,10 @@ import {
   updateSpace,
   deleteSpace,
   getSpaceAvailability,
-  getSpaceStats
+  getSpaceStats,
+  updateSpaceCapacity,
+  generateResourceUnits,
+  getSpaceResourceUnits
 } from '../controllers/spaceController';
 import { checkSpaceAvailability } from '../controllers/bookingController';
 import { authenticate } from '../middleware/auth';
@@ -31,5 +34,10 @@ router.delete('/:id', deleteSpace);
 
 // Space specific operations
 router.get('/:spaceId/availability', checkSpaceAvailability);
+
+// Capacity management
+router.patch('/:id/capacity', updateSpaceCapacity);
+router.post('/:id/units/generate', generateResourceUnits);
+router.get('/:id/units', getSpaceResourceUnits);
 
 export default router;

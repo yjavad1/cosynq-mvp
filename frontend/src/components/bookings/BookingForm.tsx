@@ -6,6 +6,7 @@ import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } f
 import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
 import { useCreateBooking, useUpdateBooking, useSpaceAvailability } from '../../hooks/useBookings';
+import { useResourceUnits } from '../../hooks/useResourceUnits';
 // import { useBookingAvailabilityCheck, formatConflictMessage } from '../../hooks/useBookingAvailability';
 // import { ConflictResult } from '../../services/bookingAvailability';
 import { CreateBookingData, BookingData } from '../../services/bookingApi';
@@ -28,6 +29,7 @@ interface BookingFormData {
   customerEmail?: string;
   customerPhone?: string;
   spaceId: string;
+  resourceUnitId?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -76,6 +78,7 @@ export function BookingForm({
       customerEmail: existingBooking.customerEmail || '',
       customerPhone: existingBooking.customerPhone || '',
       spaceId: (typeof existingBooking.spaceId === 'object' ? existingBooking.spaceId?._id : existingBooking.spaceId) || '',
+      resourceUnitId: existingBooking.resourceUnitId || '',
       date: format(new Date(existingBooking.startTime), 'yyyy-MM-dd'),
       startTime: format(new Date(existingBooking.startTime), 'HH:mm'),
       endTime: format(new Date(existingBooking.endTime), 'HH:mm'),
@@ -85,6 +88,7 @@ export function BookingForm({
       notes: existingBooking.notes || ''
     } : {
       spaceId: prefilledSpaceId || '',
+      resourceUnitId: '',
       date: prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       startTime: '09:00',
       endTime: '10:00',
@@ -109,6 +113,16 @@ export function BookingForm({
     // Filter spaces by location if needed (spaces are already location-scoped in API)
     limit: 100
   });
+
+  // Compute selected space
+  const selectedSpace = useMemo(() => {
+    return spacesData?.spaces?.find(space => space._id === spaceId);
+  }, [spacesData, spaceId]);
+
+  // Fetch resource units only for spaces with pooled units
+  const { data: resourceUnitsData, isLoading: resourceUnitsLoading } = useResourceUnits(
+    selectedSpace?.hasPooledUnits ? spaceId : null
+  );
 
   // Enhanced availability checking with validation
   // const availabilityRequest = useMemo(() => {
@@ -253,6 +267,7 @@ export function BookingForm({
       const bookingData: CreateBookingData = {
         spaceId: data.spaceId,
         contactId: hasContact ? data.contactId : undefined,
+        resourceUnitId: data.resourceUnitId || undefined,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
         // Only include customer details if no contact is selected
@@ -288,8 +303,7 @@ export function BookingForm({
     }
   };
 
-  // Get selected space details
-  const selectedSpace = spacesData?.spaces?.find(space => space._id === spaceId);
+  // selectedSpace already defined above
 
   if (!isOpen) return null;
 
@@ -487,7 +501,7 @@ export function BookingForm({
                           <span>{selectedSpace.type}</span>
                           <span>•</span>
                           <Users className="h-4 w-4" />
-                          <span>Capacity: {selectedSpace.capacity}</span>
+                          <span>Capacity: {selectedSpace.capacity === null ? 'Unlimited' : selectedSpace.capacity}</span>
                         </div>
                         {selectedSpace.description && (
                           <p className="mt-1 text-sm text-gray-600">{selectedSpace.description}</p>
@@ -495,6 +509,35 @@ export function BookingForm({
                       </div>
                     )}
                   </div>
+
+                  {/* Resource Unit Selection */}
+                  {selectedSpace?.hasPooledUnits && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Unit
+                        {selectedSpace.capacity && selectedSpace.capacity > 1 && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            (Space has {selectedSpace.capacity} units)
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        {...register('resourceUnitId')}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        disabled={resourceUnitsLoading}
+                      >
+                        <option value="">Auto-assign</option>
+                        {resourceUnitsData?.activeUnits?.map((unit: any) => (
+                          <option key={unit._id} value={unit._id}>
+                            {unit.label}
+                          </option>
+                        ))}
+                      </select>
+                      {resourceUnitsLoading && (
+                        <p className="mt-1 text-xs text-gray-500">Loading units...</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Attendee Count */}
                   <div>

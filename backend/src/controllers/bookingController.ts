@@ -3,6 +3,7 @@ import { Booking } from '../models/Booking';
 import { Space } from '../models/Space';
 import { Contact } from '../models/Contact';
 import { AuthRequest } from '../middleware/auth';
+import { availabilityService } from '../services/availabilityService';
 import Joi from 'joi';
 import mongoose from 'mongoose';
 
@@ -10,6 +11,7 @@ import mongoose from 'mongoose';
 const createBookingSchema = Joi.object({
   spaceId: Joi.string().required(),
   contactId: Joi.string().allow('').optional(),
+  resourceUnitId: Joi.string().allow('').optional(),
   startTime: Joi.date().required(),
   endTime: Joi.date().greater(Joi.ref('startTime')).required(),
   
@@ -420,37 +422,43 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check attendee count against space capacity
-    if (value.attendeeCount > space.capacity) {
+    // Check attendee count against space capacity (only for spaces with capacity limit)
+    if (space.capacity !== null && value.attendeeCount > space.capacity) {
       return res.status(400).json({
         success: false,
         message: `Space capacity is ${space.capacity} people, but ${value.attendeeCount} attendees requested`
       });
     }
 
-    // Check for conflicting bookings
-    const conflictingBookings = await Booking.find({
-      spaceId: value.spaceId,
-      status: { $in: ['Pending', 'Confirmed'] },
-      $or: [
-        {
-          // New booking starts during existing booking
-          startTime: { $lt: value.endTime },
-          endTime: { $gt: value.startTime }
-        }
-      ]
-    });
+    // Check capacity using the new availability service
+    const capacityResult = await availabilityService.checkCapacity(
+      value.spaceId,
+      value.startTime,
+      value.endTime,
+      organizationId.toString()
+    );
 
-    if (conflictingBookings.length > 0) {
+    if (!capacityResult.available) {
+      const details = capacityResult.details;
+      let message = 'Space is not available for the requested time slot';
+      
+      if (capacityResult.reason === 'OVER_CAPACITY' && details) {
+        if (details.capacity === null) {
+          message = 'Space is not available';
+        } else {
+          const timeRange = `${value.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}–${value.endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+          message = `All ${details.capacity} ${space.name} are occupied ${timeRange}`;
+        }
+      }
+      
       return res.status(409).json({
         success: false,
-        message: 'Space is not available for the requested time slot',
-        conflictingBookings: conflictingBookings.map(booking => ({
-          id: booking._id,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          reference: booking.bookingReference
-        }))
+        code: 'OVER_CAPACITY',
+        message,
+        details: {
+          capacity: details?.capacity,
+          overlapping: details?.overlapping
+        }
       });
     }
 
@@ -478,6 +486,12 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     // Generate unique booking reference
     const bookingReference = 'BK' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
+    // For pooled units, assign a resource unit if available
+    let assignedResourceUnitId = value.resourceUnitId;
+    if (space.hasPooledUnits && !assignedResourceUnitId && capacityResult.details?.availableUnitId) {
+      assignedResourceUnitId = capacityResult.details.availableUnitId;
+    }
+
     const finalData = {
       ...value,
       bookingReference,
@@ -485,7 +499,8 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       paymentStatus: 'Pending',
       checkedIn: false,
       createdBy: userId,
-      updatedBy: userId
+      updatedBy: userId,
+      ...(assignedResourceUnitId && { resourceUnitId: assignedResourceUnitId })
     };
 
     console.log('Creating booking with data:', JSON.stringify(finalData, null, 2));
