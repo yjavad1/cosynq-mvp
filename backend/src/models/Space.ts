@@ -33,7 +33,8 @@ export interface ISpace extends Document {
   status: SpaceStatus;
   
   // Capacity and Physical Properties
-  capacity: number;
+  capacity: number | null; // null => unlimited
+  hasPooledUnits: boolean; // default false
   area?: number; // in square feet/meters
   floor?: string;
   room?: string;
@@ -198,9 +199,14 @@ const spaceSchema = new Schema<ISpace>({
   },
   capacity: {
     type: Number,
-    required: true,
+    required: false,
     min: 1,
-    max: 100
+    max: 100,
+    default: null // null => unlimited
+  },
+  hasPooledUnits: {
+    type: Boolean,
+    default: false
   },
   area: {
     type: Number,

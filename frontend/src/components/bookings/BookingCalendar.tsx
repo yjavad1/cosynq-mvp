@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Views, View, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import enUS from 'date-fns/locale/en-US';
 import { 
   useBookings, 
   transformBookingsForCalendar, 
@@ -17,16 +16,12 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './BookingCalendar.css';
 
 // Configure date-fns localizer for react-big-calendar
-const locales = {
-  'en-US': enUS,
-};
-
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek,
+  startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 0 }), // Sunday = 0
   getDay,
-  locales,
+  locales: {}, // Use default locale
 });
 
 interface BookingCalendarProps {

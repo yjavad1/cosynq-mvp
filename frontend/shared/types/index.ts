@@ -353,7 +353,8 @@ export interface Space {
   description?: string;
   type: SpaceType;
   status: SpaceStatus;
-  capacity: number;
+  capacity: number | null;
+  hasPooledUnits: boolean;
   area?: number;
   floor?: string;
   room?: string;
@@ -384,7 +385,8 @@ export interface CreateSpaceData {
   description?: string;
   type: SpaceType;
   status?: SpaceStatus;
-  capacity: number;
+  capacity: number | null;
+  hasPooledUnits?: boolean;
   area?: number;
   floor?: string;
   room?: string;
@@ -665,4 +667,14 @@ export interface ContactStats {
   contactsByState: Array<{ _id: ContextState; count: number }>;
   contactsByPriority: Array<{ _id: string; count: number }>;
   recentInteractions: ContactInteraction[];
+}
+
+export interface ResourceUnit {
+  _id: string;
+  organizationId: string;
+  spaceId: string;
+  label: string;
+  status: 'Active' | 'Disabled';
+  createdAt: Date;
+  updatedAt: Date;
 }

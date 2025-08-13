@@ -16,6 +16,10 @@ export interface Conflict {
 export interface AvError {
   code: string;
   message: string;
+  details?: {
+    capacity?: number | null;
+    overlapping?: number;
+  };
 }
 
 export interface Suggestion {
