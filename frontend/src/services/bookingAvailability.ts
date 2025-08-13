@@ -1,5 +1,6 @@
 import { bookingApiService, BookingData, BookingStatus } from './bookingApi';
 import { format, parseISO, isAfter, isBefore, addMinutes, differenceInMinutes, startOfDay, endOfDay, isToday } from 'date-fns';
+import { AvailabilityResponse, Slot } from '../types/availability';
 
 // Business Rule Configuration
 export interface BusinessRules {
@@ -98,17 +99,18 @@ export class BookingAvailabilityService {
   /**
    * Check if a time slot is available with comprehensive validation
    */
-  async checkAvailability(request: AvailabilityRequest): Promise<ConflictResult> {
+  async checkAvailability(request: AvailabilityRequest): Promise<AvailabilityResponse> {
     console.log('🔍 Checking availability:', request);
     
     const startTime = typeof request.startTime === 'string' ? parseISO(request.startTime) : request.startTime;
     const endTime = typeof request.endTime === 'string' ? parseISO(request.endTime) : request.endTime;
     
-    const result: ConflictResult = {
+    const result: AvailabilityResponse = {
       hasConflict: false,
       conflicts: [],
       suggestions: [],
-      errors: []
+      errors: [],
+      slots: []
     };
 
     try {
@@ -128,15 +130,13 @@ export class BookingAvailabilityService {
         result.suggestions = await this.generateAlternativeSlots(request, startTime, endTime);
       }
 
-      result.hasConflict = result.conflicts.some(c => c.severity === 'error') || result.errors.length > 0;
+      result.hasConflict = result.conflicts.length > 0 || result.errors.length > 0;
       
     } catch (error) {
       console.error('❌ Availability check failed:', error);
       result.errors.push({
-        field: 'general',
-        message: 'Failed to check availability. Please try again.',
         code: 'AVAILABILITY_CHECK_FAILED',
-        details: error
+        message: 'Failed to check availability. Please try again.'
       });
       result.hasConflict = true;
     }
@@ -148,7 +148,7 @@ export class BookingAvailabilityService {
   /**
    * Get available time slots for a specific day
    */
-  async getDayAvailability(spaceId: string, date: Date | string): Promise<TimeSlot[]> {
+  async getDayAvailability(spaceId: string, date: Date | string): Promise<Slot[]> {
     const targetDate = typeof date === 'string' ? parseISO(date) : date;
     const dayStart = startOfDay(targetDate);
     const dayEnd = endOfDay(targetDate);
@@ -159,7 +159,7 @@ export class BookingAvailabilityService {
     const existingBookings = await this.getExistingBookings(spaceId, dayStart, dayEnd);
     
     // Generate time slots (every 30 minutes within operating hours)
-    const slots: TimeSlot[] = [];
+    const slots: Slot[] = [];
     const operatingStart = this.parseTimeToDate(targetDate, this.businessRules.operatingHours.start);
     const operatingEnd = this.parseTimeToDate(targetDate, this.businessRules.operatingHours.end);
     
@@ -168,13 +168,11 @@ export class BookingAvailabilityService {
       const slotEnd = addMinutes(currentTime, 30); // 30-minute slots
       
       const isAvailable = !this.hasTimeConflict(currentTime, slotEnd, existingBookings);
-      const isPeak = this.isWithinPeakHours(currentTime);
       
       slots.push({
-        startTime: new Date(currentTime),
-        endTime: new Date(slotEnd),
+        start: currentTime.toISOString(),
+        end: slotEnd.toISOString(),
         available: isAvailable,
-        isPeak,
         reason: isAvailable ? undefined : 'Booking conflict'
       });
       
@@ -187,8 +185,8 @@ export class BookingAvailabilityService {
   /**
    * Bulk availability check for multiple spaces
    */
-  async getBulkAvailability(request: BulkAvailabilityRequest): Promise<Map<string, TimeSlot[]>> {
-    const result = new Map<string, TimeSlot[]>();
+  async getBulkAvailability(request: BulkAvailabilityRequest): Promise<Map<string, Slot[]>> {
+    const result = new Map<string, Slot[]>();
     
     // Process spaces in parallel for better performance
     const promises = request.spaceIds.map(async (spaceId) => {
@@ -228,25 +226,23 @@ export class BookingAvailabilityService {
   /**
    * Validate basic booking requirements
    */
-  private validateBasicRequirements(request: AvailabilityRequest, result: ConflictResult): void {
+  private validateBasicRequirements(request: AvailabilityRequest, result: AvailabilityResponse): void {
     const startTime = typeof request.startTime === 'string' ? parseISO(request.startTime) : request.startTime;
     const endTime = typeof request.endTime === 'string' ? parseISO(request.endTime) : request.endTime;
     
     // Time validation
     if (!startTime || !endTime) {
       result.errors.push({
-        field: 'time',
-        message: 'Both start and end times are required',
-        code: 'MISSING_TIME'
+        code: 'MISSING_TIME',
+        message: 'Both start and end times are required'
       });
       return;
     }
     
     if (!isAfter(endTime, startTime)) {
       result.errors.push({
-        field: 'endTime',
-        message: 'End time must be after start time',
-        code: 'INVALID_TIME_RANGE'
+        code: 'INVALID_TIME_RANGE',
+        message: 'End time must be after start time'
       });
     }
     
@@ -254,26 +250,23 @@ export class BookingAvailabilityService {
     const duration = differenceInMinutes(endTime, startTime);
     if (duration < this.businessRules.durationLimits.minimum) {
       result.errors.push({
-        field: 'duration',
-        message: `Minimum booking duration is ${this.businessRules.durationLimits.minimum} minutes`,
-        code: 'DURATION_TOO_SHORT'
+        code: 'DURATION_TOO_SHORT',
+        message: `Minimum booking duration is ${this.businessRules.durationLimits.minimum} minutes`
       });
     }
     
     if (duration > this.businessRules.durationLimits.maximum) {
       result.errors.push({
-        field: 'duration',
-        message: `Maximum booking duration is ${this.businessRules.durationLimits.maximum} minutes`,
-        code: 'DURATION_TOO_LONG'
+        code: 'DURATION_TOO_LONG',
+        message: `Maximum booking duration is ${this.businessRules.durationLimits.maximum} minutes`
       });
     }
     
     // Space ID validation
     if (!request.spaceId) {
       result.errors.push({
-        field: 'spaceId',
-        message: 'Space ID is required',
-        code: 'MISSING_SPACE_ID'
+        code: 'MISSING_SPACE_ID',
+        message: 'Space ID is required'
       });
     }
   }
@@ -284,25 +277,23 @@ export class BookingAvailabilityService {
   private async validateBusinessRules(
     startTime: Date, 
     endTime: Date, 
-    result: ConflictResult
+    result: AvailabilityResponse
   ): Promise<void> {
     // Operating hours validation
     if (!this.isWithinOperatingHours(startTime, endTime)) {
       result.conflicts.push({
-        type: 'business_rule',
-        message: `Bookings are only allowed between ${this.businessRules.operatingHours.start} and ${this.businessRules.operatingHours.end}`,
-        severity: 'error',
-        suggestedAction: 'Choose a time within operating hours'
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        reference: `Operating hours: ${this.businessRules.operatingHours.start} - ${this.businessRules.operatingHours.end}`
       });
     }
     
     // Weekend booking validation
     if (!this.businessRules.weekendBooking && this.isWeekend(startTime)) {
       result.conflicts.push({
-        type: 'business_rule',
-        message: 'Weekend bookings are not allowed',
-        severity: 'error',
-        suggestedAction: 'Choose a weekday'
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        reference: 'Weekend bookings not allowed'
       });
     }
     
@@ -312,20 +303,18 @@ export class BookingAvailabilityService {
     
     if (hoursUntilBooking < this.businessRules.advanceBookingLimits.minimum) {
       result.conflicts.push({
-        type: 'business_rule',
-        message: `Bookings must be made at least ${this.businessRules.advanceBookingLimits.minimum} hours in advance`,
-        severity: 'error',
-        suggestedAction: 'Choose a later time'
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        reference: `Advance booking required: ${this.businessRules.advanceBookingLimits.minimum} hours`
       });
     }
     
     const daysUntilBooking = hoursUntilBooking / 24;
     if (daysUntilBooking > this.businessRules.advanceBookingLimits.maximum) {
       result.conflicts.push({
-        type: 'business_rule',
-        message: `Bookings cannot be made more than ${this.businessRules.advanceBookingLimits.maximum} days in advance`,
-        severity: 'error',
-        suggestedAction: 'Choose an earlier date'
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
+        reference: `Maximum advance booking: ${this.businessRules.advanceBookingLimits.maximum} days`
       });
     }
     
@@ -334,10 +323,9 @@ export class BookingAvailabilityService {
       const cutoffTime = this.parseTimeToDate(startTime, this.businessRules.sameDayBookingCutoff);
       if (isAfter(now, cutoffTime)) {
         result.conflicts.push({
-          type: 'business_rule',
-          message: `Same-day bookings must be made before ${this.businessRules.sameDayBookingCutoff}`,
-          severity: 'error',
-          suggestedAction: 'Choose tomorrow or later'
+          start: startTime.toISOString(),
+          end: endTime.toISOString(),
+          reference: `Same-day cutoff: ${this.businessRules.sameDayBookingCutoff}`
         });
       }
     }
@@ -350,7 +338,7 @@ export class BookingAvailabilityService {
     request: AvailabilityRequest, 
     startTime: Date, 
     endTime: Date, 
-    result: ConflictResult
+    result: AvailabilityResponse
   ): Promise<void> {
     const existingBookings = await this.getExistingBookings(
       request.spaceId, 
@@ -366,22 +354,22 @@ export class BookingAvailabilityService {
       // Check for direct overlap
       if (this.hasTimeOverlap(startTime, endTime, bookingStart, bookingEnd)) {
         result.conflicts.push({
-          type: 'overlap',
-          conflictingBooking: booking,
-          message: `Conflicts with existing booking from ${format(bookingStart, 'HH:mm')} to ${format(bookingEnd, 'HH:mm')}`,
-          severity: 'error',
-          suggestedAction: 'Choose a different time slot'
+          bookingId: booking._id,
+          start: bookingStart.toISOString(),
+          end: bookingEnd.toISOString(),
+          spaceId: typeof booking.spaceId === 'string' ? booking.spaceId : booking.spaceId._id,
+          reference: `Existing booking conflict`
         });
       }
       
       // Check for buffer time violation
       else if (this.violatesBufferTime(startTime, endTime, bookingStart, bookingEnd)) {
         result.conflicts.push({
-          type: 'buffer',
-          conflictingBooking: booking,
-          message: `Too close to existing booking. ${this.businessRules.bufferTime} minute buffer required`,
-          severity: 'warning',
-          suggestedAction: `Leave ${this.businessRules.bufferTime} minutes between bookings`
+          bookingId: booking._id,
+          start: bookingStart.toISOString(),
+          end: bookingEnd.toISOString(),
+          spaceId: typeof booking.spaceId === 'string' ? booking.spaceId : booking.spaceId._id,
+          reference: `Buffer time violation: ${this.businessRules.bufferTime} min required`
         });
       }
     }
@@ -394,9 +382,9 @@ export class BookingAvailabilityService {
     request: AvailabilityRequest, 
     originalStart: Date, 
     originalEnd: Date
-  ): Promise<TimeSlot[]> {
+  ): Promise<Slot[]> {
     const duration = differenceInMinutes(originalEnd, originalStart);
-    const suggestions: TimeSlot[] = [];
+    const suggestions: Slot[] = [];
     const daySlots = await this.getDayAvailability(request.spaceId, originalStart);
     
     // Find consecutive available slots that match the duration
@@ -415,11 +403,11 @@ export class BookingAvailabilityService {
       
       // If we have enough consecutive slots, add as suggestion
       if (totalDuration >= duration) {
+        const startTime = new Date(consecutiveSlots[0].start);
         suggestions.push({
-          startTime: consecutiveSlots[0].startTime,
-          endTime: addMinutes(consecutiveSlots[0].startTime, duration),
-          available: true,
-          isPeak: consecutiveSlots[0].isPeak
+          start: startTime.toISOString(),
+          end: addMinutes(startTime, duration).toISOString(),
+          available: true
         });
       }
       
@@ -510,17 +498,6 @@ export class BookingAvailabilityService {
     return !isBefore(startTime, dayStart) && !isAfter(endTime, dayEnd);
   }
 
-  /**
-   * Check if time is within peak hours
-   */
-  private isWithinPeakHours(time: Date): boolean {
-    if (!this.businessRules.peakHours) return false;
-    
-    const peakStart = this.parseTimeToDate(time, this.businessRules.peakHours.start);
-    const peakEnd = this.parseTimeToDate(time, this.businessRules.peakHours.end);
-    
-    return !isBefore(time, peakStart) && !isAfter(time, peakEnd);
-  }
 
   /**
    * Check if date is weekend

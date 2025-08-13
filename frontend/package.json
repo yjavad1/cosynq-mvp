@@ -4,6 +4,9 @@
   "description": "Frontend React app for Cosynq coworking SaaS platform",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=18 <23"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
