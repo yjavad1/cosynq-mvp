@@ -9,6 +9,7 @@ export interface BookingData {
   organizationId: string;
   spaceId: string | { _id: string; name: string; locationId: string; [key: string]: any };
   contactId?: string | { _id: string; firstName: string; lastName: string; [key: string]: any };
+  resourceUnitId?: string;
   
   // Booking Details
   startTime: string;
@@ -50,7 +51,8 @@ export interface BookingData {
     _id: string;
     name: string;
     locationId: string;
-    capacity: number;
+    capacity: number | null;
+    hasPooledUnits?: boolean;
   };
   contact?: {
     _id: string;
@@ -63,6 +65,7 @@ export interface BookingData {
 export interface CreateBookingData {
   spaceId: string;
   contactId?: string;
+  resourceUnitId?: string;
   
   // Time Details
   startTime: string;
@@ -90,6 +93,7 @@ export interface UpdateBookingData {
   startTime?: string;
   endTime?: string;
   status?: BookingStatus;
+  resourceUnitId?: string;
   
   // Customer Information updates
   customerName?: string;
@@ -289,12 +293,25 @@ class BookingApiService {
   async createBooking(bookingData: CreateBookingData): Promise<AxiosResponse<ApiResponse<{ booking: BookingData }>>> {
     console.log('📍 CREATE BOOKING - Target URL:', `${this.api.defaults.baseURL}/bookings`);
     console.log('Creating booking with data:', JSON.stringify(bookingData, null, 2));
-    return this.api.post('/bookings', bookingData);
+    
+    // Filter out empty resourceUnitId to let backend auto-assign
+    const payload = { ...bookingData };
+    if (!payload.resourceUnitId) {
+      delete payload.resourceUnitId;
+    }
+    
+    return this.api.post('/bookings', payload);
   }
 
   async updateBooking(id: string, bookingData: UpdateBookingData): Promise<AxiosResponse<ApiResponse<{ booking: BookingData }>>> {
     console.log('Updating booking:', id, 'with data:', JSON.stringify(bookingData, null, 2));
-    return this.api.put(`/bookings/${id}`, bookingData);
+    
+    // Filter out empty resourceUnitId
+    const payload = { ...bookingData };
+    if (!payload.resourceUnitId) {
+      delete payload.resourceUnitId;
+    }
+    return this.api.put(`/bookings/${id}`, payload);
   }
 
   async deleteBooking(id: string, cancelReason?: string): Promise<AxiosResponse<ApiResponse<{}>>> {

@@ -115,7 +115,7 @@ export function SpaceForm({ space, isOpen, onClose, onSuccess }: SpaceFormProps)
       newErrors.name = 'Space name is required';
     }
 
-    if (formData.capacity < 1) {
+    if (formData.capacity !== null && formData.capacity < 1) {
       newErrors.capacity = 'Capacity must be at least 1';
     }
 
@@ -307,8 +307,8 @@ export function SpaceForm({ space, isOpen, onClose, onSuccess }: SpaceFormProps)
                         <input
                           type="number"
                           min="1"
-                          value={formData.capacity}
-                          onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
+                          value={formData.capacity || ''}
+                          onChange={(e) => setFormData({ ...formData, capacity: e.target.value ? parseInt(e.target.value) : null })}
                           className="block w-full rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                         {errors.capacity && <p className="text-red-600 text-xs mt-1">{errors.capacity}</p>}

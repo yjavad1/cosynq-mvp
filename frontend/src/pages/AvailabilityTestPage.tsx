@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Calendar, Clock, AlertCircle, CheckCircle, Lightbulb, Settings, Users, MapPin } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { useSpaces } from '../hooks/useSpaces';
 import { 
   useBookingAvailabilityCheck, 
   useDayAvailability, 
   useSpaceAvailabilityStats
 } from '../hooks/useBookingAvailability';
-import { TimeSlot } from '../services/bookingAvailability';
+import { AvailabilityResponse, Slot, Conflict, AvError, Suggestion } from '../types/availability';
 
 export default function AvailabilityTestPage() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
@@ -40,13 +41,24 @@ export default function AvailabilityTestPage() {
     data: availabilityResult, 
     isLoading: availabilityLoading,
     error: availabilityError
-  } = useBookingAvailabilityCheck(availabilityRequest);
+  } = useBookingAvailabilityCheck(availabilityRequest) as {
+    data: AvailabilityResponse | undefined;
+    isLoading: boolean;
+    error: any;
+  };
 
   const { 
     data: daySlots 
   } = useDayAvailability(selectedSpaceId, selectedDate);
 
   const spaceStats = useSpaceAvailabilityStats(selectedSpaceId, selectedDate);
+
+  // Safe field access with fallbacks
+  const hasConflict = availabilityResult?.hasConflict ?? false;
+  const conflicts: Conflict[] = availabilityResult?.conflicts ?? [];
+  const errors: AvError[] = availabilityResult?.errors ?? [];
+  const suggestions: Suggestion[] = availabilityResult?.suggestions ?? [];
+  const slots: Slot[] = daySlots ?? [];
 
   // Generate time slots for dropdowns
   const timeSlots = useMemo(() => {
@@ -269,12 +281,12 @@ export default function AvailabilityTestPage() {
                   <div className="space-y-6">
                     {/* Overall Status */}
                     <div className={`p-4 rounded-lg border-2 ${
-                      !availabilityResult.hasConflict 
+                      !hasConflict 
                         ? 'bg-green-50 border-green-200' 
                         : 'bg-red-50 border-red-200'
                     }`}>
                       <div className="flex items-center space-x-3">
-                        {!availabilityResult.hasConflict ? (
+                        {!hasConflict ? (
                           <>
                             <CheckCircle className="h-6 w-6 text-green-600" />
                             <div>
@@ -288,7 +300,7 @@ export default function AvailabilityTestPage() {
                             <div>
                               <h3 className="text-lg font-semibold text-red-900">❌ Booking Conflicts Detected</h3>
                               <p className="text-red-700">
-                                {availabilityResult.conflicts.length} conflict(s) and {availabilityResult.errors.length} error(s) found
+                                {conflicts.length} conflict(s) and {errors.length} error(s) found
                               </p>
                             </div>
                           </>
@@ -297,61 +309,26 @@ export default function AvailabilityTestPage() {
                     </div>
 
                     {/* Detailed Conflicts */}
-                    {availabilityResult.conflicts.length > 0 && (
+                    {conflicts.length > 0 && (
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">⚠️ Booking Conflicts</h4>
                         <div className="space-y-3">
-                          {availabilityResult.conflicts.map((conflict: any, index: number) => (
-                            <div key={index} className={`p-4 rounded-lg border ${
-                              conflict.severity === 'error' 
-                                ? 'bg-red-50 border-red-200' 
-                                : 'bg-yellow-50 border-yellow-200'
-                            }`}>
+{conflicts.map((conflict: Conflict, index: number) => (
+                            <div key={index} className="p-4 rounded-lg border bg-red-50 border-red-200">
                               <div className="flex items-start space-x-3">
-                                <AlertCircle className={`h-5 w-5 mt-0.5 ${
-                                  conflict.severity === 'error' ? 'text-red-600' : 'text-yellow-600'
-                                }`} />
+                                <AlertCircle className="h-5 w-5 mt-0.5 text-red-600" />
                                 <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                      conflict.severity === 'error' 
-                                        ? 'bg-red-100 text-red-800' 
-                                        : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      {conflict.type.toUpperCase()}
-                                    </span>
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                      conflict.severity === 'error' 
-                                        ? 'bg-red-200 text-red-900' 
-                                        : 'bg-yellow-200 text-yellow-900'
-                                    }`}>
-                                      {conflict.severity.toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <p className={`mt-2 font-medium ${
-                                    conflict.severity === 'error' ? 'text-red-900' : 'text-yellow-900'
-                                  }`}>
-                                    {conflict.message}
+                                  <p className="font-medium text-red-900">
+                                    Conflict: {conflict.start} - {conflict.end}
                                   </p>
-                                  {conflict.suggestedAction && (
-                                    <div className={`mt-2 p-2 rounded text-sm ${
-                                      conflict.severity === 'error' 
-                                        ? 'bg-red-100 text-red-800' 
-                                        : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      💡 <strong>Suggested Action:</strong> {conflict.suggestedAction}
-                                    </div>
+                                  {conflict.spaceId && (
+                                    <p className="text-sm text-red-700 mt-1">Space: {conflict.spaceId}</p>
                                   )}
-                                  {conflict.conflictingBooking && (
-                                    <div className="mt-3 p-3 bg-gray-100 rounded-lg text-sm">
-                                      <p className="font-medium text-gray-900">Conflicting Booking:</p>
-                                      <div className="mt-1 space-y-1 text-gray-700">
-                                        <p>📅 {format(new Date(conflict.conflictingBooking.startTime), 'MMM d, yyyy h:mm a')} - {format(new Date(conflict.conflictingBooking.endTime), 'h:mm a')}</p>
-                                        <p>👤 {conflict.conflictingBooking.customerName || 'Contact booking'}</p>
-                                        <p>📋 Ref: {conflict.conflictingBooking.bookingReference}</p>
-                                        <p>📊 Status: <span className="font-medium">{conflict.conflictingBooking.status}</span></p>
-                                      </div>
-                                    </div>
+                                  {conflict.bookingId && (
+                                    <p className="text-sm text-red-700 mt-1">Booking ID: {conflict.bookingId}</p>
+                                  )}
+                                  {conflict.reference && (
+                                    <p className="text-sm text-red-700 mt-1">Reference: {conflict.reference}</p>
                                   )}
                                 </div>
                               </div>
@@ -362,19 +339,16 @@ export default function AvailabilityTestPage() {
                     )}
 
                     {/* Validation Errors */}
-                    {availabilityResult.errors.length > 0 && (
+                    {errors.length > 0 && (
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">🚫 Validation Errors</h4>
                         <div className="space-y-3">
-                          {availabilityResult.errors.map((error: any, index: number) => (
+{errors.map((error: AvError, index: number) => (
                             <div key={index} className="p-4 bg-red-50 border border-red-200 rounded-lg">
                               <div className="flex items-start space-x-3">
                                 <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
                                 <div>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-medium">
-                                      {error.field.toUpperCase()}
-                                    </span>
                                     <span className="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-medium">
                                       {error.code}
                                     </span>
@@ -389,22 +363,17 @@ export default function AvailabilityTestPage() {
                     )}
 
                     {/* Alternative Suggestions */}
-                    {availabilityResult.suggestions && availabilityResult.suggestions.length > 0 && (
+                    {suggestions.length > 0 && (
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">💡 Alternative Time Slots</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {availabilityResult.suggestions.map((suggestion: any, index: number) => (
+{suggestions.map((suggestion: Suggestion, index: number) => (
                             <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="font-medium text-blue-900">
-                                    {format(suggestion.startTime, 'h:mm a')} - {format(suggestion.endTime, 'h:mm a')}
+                                    {formatInTimeZone(parseISO(suggestion.start), 'Asia/Kolkata', 'h:mm a')} - {formatInTimeZone(parseISO(suggestion.end), 'Asia/Kolkata', 'h:mm a')}
                                   </p>
-                                  {suggestion.isPeak && (
-                                    <span className="inline-block mt-1 text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded-full">
-                                      Peak Hours
-                                    </span>
-                                  )}
                                 </div>
                                 <Lightbulb className="h-5 w-5 text-blue-600" />
                               </div>
@@ -423,23 +392,21 @@ export default function AvailabilityTestPage() {
               </div>
 
               {/* Day Schedule View */}
-              {selectedSpaceId && daySlots && daySlots.length > 0 && (
+              {selectedSpaceId && slots.length > 0 && (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Day Schedule Overview</h3>
                   <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-1">
-                    {daySlots.map((slot: TimeSlot, index: number) => (
+{slots.map((slot: Slot, index: number) => (
                       <div
                         key={index}
                         className={`p-2 rounded text-xs text-center font-medium ${
                           slot.available
-                            ? slot.isPeak
-                              ? 'bg-orange-100 text-orange-800 border border-orange-200'
-                              : 'bg-green-100 text-green-800 border border-green-200'
+                            ? 'bg-green-100 text-green-800 border border-green-200'
                             : 'bg-red-100 text-red-800 border border-red-200'
                         }`}
-                        title={`${format(slot.startTime, 'h:mm a')} - ${format(slot.endTime, 'h:mm a')} ${slot.available ? '(Available)' : '(Booked)'}`}
+                        title={`${formatInTimeZone(parseISO(slot.start), 'Asia/Kolkata', 'h:mm a')} - ${formatInTimeZone(parseISO(slot.end), 'Asia/Kolkata', 'h:mm a')} ${slot.available ? '(Available)' : '(Booked)'}`}
                       >
-                        {format(slot.startTime, 'h:mm')}
+                        {formatInTimeZone(parseISO(slot.start), 'Asia/Kolkata', 'h:mm')}
                       </div>
                     ))}
                   </div>
@@ -447,10 +414,6 @@ export default function AvailabilityTestPage() {
                     <div className="flex items-center space-x-1">
                       <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
                       <span>Available</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div>
-                      <span>Peak Hours</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>

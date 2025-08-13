@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useContacts } from '../../hooks/useContacts';
 import { useSpaces, useSpace } from '../../hooks/useSpaces';
 import { useCreateBooking, useUpdateBooking, useSpaceAvailability } from '../../hooks/useBookings';
+import { useResourceUnits } from '../../hooks/useResourceUnits';
 // import { useBookingAvailabilityCheck, formatConflictMessage } from '../../hooks/useBookingAvailability';
 // import { ConflictResult } from '../../services/bookingAvailability';
 import { CreateBookingData, BookingData } from '../../services/bookingApi';
@@ -76,6 +78,7 @@ export function BookingForm({
       customerEmail: existingBooking.customerEmail || '',
       customerPhone: existingBooking.customerPhone || '',
       spaceId: (typeof existingBooking.spaceId === 'object' ? existingBooking.spaceId?._id : existingBooking.spaceId) || '',
+      resourceUnitId: existingBooking.resourceUnitId || '',
       date: format(new Date(existingBooking.startTime), 'yyyy-MM-dd'),
       startTime: format(new Date(existingBooking.startTime), 'HH:mm'),
       endTime: format(new Date(existingBooking.endTime), 'HH:mm'),
@@ -85,6 +88,7 @@ export function BookingForm({
       notes: existingBooking.notes || ''
     } : {
       spaceId: prefilledSpaceId || '',
+      resourceUnitId: '',
       date: prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       startTime: '09:00',
       endTime: '10:00',
@@ -110,8 +114,20 @@ export function BookingForm({
     limit: 100
   });
 
+const selectedSpace = useMemo(() => {
+    return spacesData?.spaces?.find(space => space._id === spaceId);
+  }, [spacesData, spaceId]);
+
   // Fetch individual space data for fresh pooled units and capacity info
   const { data: freshSpaceData } = useSpace(spaceId);
+
+  // Use fresh data if available, fallback to cached data
+  const currentSpace = freshSpaceData || selectedSpace;
+
+  // Fetch resource units only for spaces with pooled units
+  const { data: resourceUnitsData, isLoading: resourceUnitsLoading } = useResourceUnits(
+    currentSpace?.hasPooledUnits ? spaceId : null
+  );
 
   // Enhanced availability checking with validation
   // const availabilityRequest = useMemo(() => {
@@ -263,6 +279,7 @@ export function BookingForm({
       const bookingData: CreateBookingData = {
         spaceId: data.spaceId,
         contactId: hasContact ? data.contactId : undefined,
+        resourceUnitId: data.resourceUnitId || undefined,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
         // Only include customer details if no contact is selected
@@ -298,8 +315,7 @@ export function BookingForm({
     }
   };
 
-  // Get selected space details - use fresh data if available, fallback to list data
-  const selectedSpace = freshSpaceData || spacesData?.spaces?.find(space => space._id === spaceId);
+const finalSelectedSpace = freshSpaceData || selectedSpace;
 
   if (!isOpen) return null;
 
@@ -497,7 +513,7 @@ export function BookingForm({
                           <span>{selectedSpace.type}</span>
                           <span>•</span>
                           <Users className="h-4 w-4" />
-                          <span>Capacity: {selectedSpace.capacity}</span>
+<span>Capacity: {selectedSpace.capacity === null ? 'Unlimited' : selectedSpace.capacity}</span>
                           {selectedSpace.capacity && selectedSpace.capacity > 1 && (
                             <span className="text-blue-600 font-medium">• Multi-capacity space</span>
                           )}
@@ -533,6 +549,35 @@ export function BookingForm({
                       </div>
                     )}
                   </div>
+
+                  {/* Resource Unit Selection */}
+                  {selectedSpace?.hasPooledUnits && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Unit
+                        {selectedSpace.capacity && selectedSpace.capacity > 1 && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            (Space has {selectedSpace.capacity} units)
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        {...register('resourceUnitId')}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        disabled={resourceUnitsLoading}
+                      >
+                        <option value="">Auto-assign</option>
+                        {resourceUnitsData?.activeUnits?.map((unit: any) => (
+                          <option key={unit._id} value={unit._id}>
+                            {unit.label}
+                          </option>
+                        ))}
+                      </select>
+                      {resourceUnitsLoading && (
+                        <p className="mt-1 text-xs text-gray-500">Loading units...</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Attendee Count */}
                   <div>
@@ -581,7 +626,7 @@ export function BookingForm({
                       >
                         {timeSlots.map((time) => (
                           <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
+                            {formatInTimeZone(new Date(`2024-01-01T${time}:00`), 'Asia/Kolkata', 'h:mm a')}
                           </option>
                         ))}
                       </select>
@@ -598,7 +643,7 @@ export function BookingForm({
                       >
                         {timeSlots.map((time) => (
                           <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
+                            {formatInTimeZone(new Date(`2024-01-01T${time}:00`), 'Asia/Kolkata', 'h:mm a')}
                           </option>
                         ))}
                       </select>

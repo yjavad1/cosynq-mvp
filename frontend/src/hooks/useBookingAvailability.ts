@@ -3,11 +3,10 @@ import { useMemo, useCallback } from 'react';
 import { 
   bookingAvailabilityService, 
   AvailabilityRequest, 
-  ConflictResult, 
-  TimeSlot, 
   BulkAvailabilityRequest,
   BusinessRules 
 } from '../services/bookingAvailability';
+import { AvailabilityResponse, Slot, Suggestion } from '../types/availability';
 import { format } from 'date-fns';
 
 // Query Keys
@@ -21,9 +20,9 @@ export const REAL_TIME_AVAILABILITY_QUERY_KEY = 'realtime-availability';
  * Provides conflict detection, business rules enforcement, and alternative suggestions
  */
 export const useBookingAvailabilityCheck = (request: AvailabilityRequest | null) => {
-  return useQuery<ConflictResult, Error>({
+ return useQuery<AvailabilityResponse>({
     queryKey: [AVAILABILITY_QUERY_KEY, request],
-    queryFn: async (): Promise<ConflictResult> => {
+    queryFn: async (): Promise<AvailabilityResponse> => {
       if (!request) throw new Error('Availability request is required');
       return await bookingAvailabilityService.checkAvailability(request);
     },
@@ -60,16 +59,16 @@ export const useRealTimeAvailabilityCheck = (request: AvailabilityRequest | null
  * Perfect for calendar and time picker components
  */
 export const useDayAvailability = (spaceId: string | undefined, date: Date | string | undefined) => {
-  return useQuery<TimeSlot[], Error>({
+return useQuery<Slot[]>({
     queryKey: [DAY_AVAILABILITY_QUERY_KEY, spaceId, date],
-    queryFn: async (): Promise<TimeSlot[]> => {
+    queryFn: async (): Promise<Slot[]> => {
       if (!spaceId || !date) throw new Error('Space ID and date are required');
       return await bookingAvailabilityService.getDayAvailability(spaceId, date);
     },
     enabled: !!spaceId && !!date,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: true
+refetchOnWindowFocus: true,
   });
 };
 
@@ -78,16 +77,16 @@ export const useDayAvailability = (spaceId: string | undefined, date: Date | str
  * Useful for space comparison and selection
  */
 export const useBulkAvailability = (request: BulkAvailabilityRequest | null) => {
-  return useQuery<Map<string, TimeSlot[]>, Error>({
+return useQuery<Map<string, Slot[]>>({
     queryKey: [BULK_AVAILABILITY_QUERY_KEY, request],
-    queryFn: async (): Promise<Map<string, TimeSlot[]>> => {
+    queryFn: async (): Promise<Map<string, Slot[]>> => {
       if (!request) throw new Error('Bulk availability request is required');
       return await bookingAvailabilityService.getBulkAvailability(request);
     },
     enabled: !!request && !!request.spaceIds.length && !!request.date,
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 15, // 15 minutes
-    refetchOnWindowFocus: true
+refetchOnWindowFocus: true,
   });
 };
 
@@ -126,8 +125,8 @@ export const useBookingFormValidation = () => {
 
   const validateBookingRequest = useCallback(async (request: AvailabilityRequest): Promise<{
     isValid: boolean;
-    conflicts: ConflictResult;
-    suggestions: TimeSlot[];
+    conflicts: AvailabilityResponse;
+    suggestions: Suggestion[];
   }> => {
     try {
       const conflicts = await bookingAvailabilityService.checkAvailability(request);
@@ -146,10 +145,10 @@ export const useBookingFormValidation = () => {
           conflicts: [],
           suggestions: [],
           errors: [{
-            field: 'general',
-            message: 'Unable to validate booking. Please try again.',
-            code: 'VALIDATION_ERROR'
-          }]
+            code: 'VALIDATION_ERROR',
+            message: 'Unable to validate booking. Please try again.'
+          }],
+          slots: []
         },
         suggestions: []
       };
@@ -202,18 +201,18 @@ export const useNextAvailableSlots = (spaceId: string | undefined, fromDate?: Da
   const { data: daySlots } = useDayAvailability(spaceId, searchDate);
   
   return useMemo(() => {
-    if (!daySlots) return [];
+    const slots: Slot[] = daySlots ?? [];
     
-    return daySlots
-      .filter((slot: TimeSlot) => slot.available)
+ return slots
+      .filter((slot: Slot) => slot.available)
       .slice(0, 10) // Next 10 available slots
-      .map((slot: TimeSlot) => ({
-        label: `${format(slot.startTime, 'h:mm a')} - ${format(slot.endTime, 'h:mm a')}`,
-        value: slot.startTime.toISOString(),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        isPeak: slot.isPeak,
-        price: slot.price
+      .map((slot: Slot) => ({
+        label: `${format(new Date(slot.start), 'h:mm a')} - ${format(new Date(slot.end), 'h:mm a')}`,
+        value: slot.start,
+        startTime: new Date(slot.start),
+        endTime: new Date(slot.end),
+        available: slot.available,
+        reason: slot.reason
       }));
   }, [daySlots]);
 };
@@ -223,27 +222,26 @@ export const useSpaceAvailabilityStats = (spaceId: string | undefined, date: Dat
   const { data: daySlots } = useDayAvailability(spaceId, date);
   
   return useMemo(() => {
-    if (!daySlots || !daySlots.length) {
+    const slots: Slot[] = daySlots ?? [];
+    
+    if (!slots.length) {
       return {
         totalSlots: 0,
         availableSlots: 0,
         bookedSlots: 0,
-        peakSlots: 0,
         occupancyRate: 0
       };
     }
 
-    const totalSlots = daySlots.length;
-    const availableSlots = daySlots.filter((slot: TimeSlot) => slot.available).length;
+const totalSlots = slots.length;
+    const availableSlots = slots.filter((slot: Slot) => slot.available).length;
     const bookedSlots = totalSlots - availableSlots;
-    const peakSlots = daySlots.filter((slot: TimeSlot) => slot.isPeak).length;
     const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
 
     return {
       totalSlots,
       availableSlots,
       bookedSlots,
-      peakSlots,
       occupancyRate
     };
   }, [daySlots]);
@@ -254,7 +252,7 @@ export const useSpaceAvailabilityStats = (spaceId: string | undefined, date: Dat
  */
 
 // Format conflict messages for user-friendly display
-export const formatConflictMessage = (conflict: ConflictResult): string[] => {
+export const formatConflictMessage = (conflict: AvailabilityResponse): string[] => {
   const messages: string[] = [];
   
   // Add error messages
@@ -264,30 +262,28 @@ export const formatConflictMessage = (conflict: ConflictResult): string[] => {
   
   // Add conflict messages
   if (conflict.conflicts.length > 0) {
-    messages.push(...conflict.conflicts.map(c => c.message));
+    messages.push(...conflict.conflicts.map(c => `${c.start} - ${c.end}: ${c.reference || 'Conflict detected'}`));
   }
   
   return messages;
 };
 
 // Get conflict severity level
-export const getConflictSeverity = (conflict: ConflictResult): 'none' | 'warning' | 'error' => {
+export const getConflictSeverity = (conflict: AvailabilityResponse): 'none' | 'warning' | 'error' => {
   if (conflict.errors.length > 0) return 'error';
-  if (conflict.conflicts.some(c => c.severity === 'error')) return 'error';
-  if (conflict.conflicts.some(c => c.severity === 'warning')) return 'warning';
+  if (conflict.hasConflict) return 'error';
   return 'none';
 };
 
 // Transform time slots for select components
-export const transformSlotsForSelect = (slots: TimeSlot[]) => {
+export const transformSlotsForSelect = (slots: Slot[]) => {
   return slots
-    .filter(slot => slot.available)
-    .map(slot => ({
-      label: `${format(slot.startTime, 'h:mm a')} - ${format(slot.endTime, 'h:mm a')}${slot.isPeak ? ' (Peak)' : ''}`,
-      value: slot.startTime.toISOString(),
+    .filter((slot: Slot) => slot.available)
+    .map((slot: Slot) => ({
+      label: `${format(new Date(slot.start), 'h:mm a')} - ${format(new Date(slot.end), 'h:mm a')}`,
+      value: slot.start,
       disabled: !slot.available,
-      peak: slot.isPeak,
-      price: slot.price
+      reason: slot.reason
     }));
 };
 

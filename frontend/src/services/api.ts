@@ -18,6 +18,7 @@ import {
   Location,
   CreateLocationData,
   LocationsResponse,
+  ResourceUnit,
   LocationStats,
   ProfileResponse,
   OperatingHours,
@@ -297,6 +298,10 @@ class ApiService {
       }
     });
     return this.api.get(`/spaces/availability?${queryParams.toString()}`);
+  }
+
+  async getSpaceResourceUnits(spaceId: string): Promise<AxiosResponse<ApiResponse<{ units: ResourceUnit[] }>>> {
+    return this.api.get(`/spaces/${spaceId}/units`);
   }
 
   // Location Management Methods

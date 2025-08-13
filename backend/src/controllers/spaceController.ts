@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { Space, SpaceType, SpaceStatus } from '../models/Space';
+import { ResourceUnit } from '../models/ResourceUnit';
 import { AuthRequest } from '../middleware/auth';
+import { availabilityService } from '../services/availabilityService';
 import Joi from 'joi';
 import mongoose from 'mongoose';
 
@@ -569,6 +571,189 @@ export const getSpaceStats = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Get space stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Update space capacity settings
+export const updateSpaceCapacity = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    const { id } = req.params;
+    const { capacity, hasPooledUnits } = req.body;
+
+    // Validation
+    const schema = Joi.object({
+      capacity: Joi.number().min(1).allow(null).optional(),
+      hasPooledUnits: Joi.boolean().optional()
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    const space = await Space.findOne({
+      _id: id,
+      organizationId: req.user._id
+    });
+
+    if (!space) {
+      return res.status(404).json({
+        success: false,
+        message: 'Space not found'
+      });
+    }
+
+    // Update space capacity settings
+    if (value.capacity !== undefined) {
+      space.capacity = value.capacity;
+    }
+    if (value.hasPooledUnits !== undefined) {
+      space.hasPooledUnits = value.hasPooledUnits;
+    }
+
+    await space.save();
+
+    res.json({
+      success: true,
+      message: 'Space capacity updated successfully',
+      data: { space }
+    });
+
+  } catch (error) {
+    console.error('Update space capacity error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Generate resource units for a space
+export const generateResourceUnits = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    const { id } = req.params;
+    const { count, labelPrefix = 'Unit' } = req.body;
+
+    // Validation
+    const schema = Joi.object({
+      count: Joi.number().integer().min(1).max(100).required(),
+      labelPrefix: Joi.string().trim().max(50).default('Unit')
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message
+        }))
+      });
+    }
+
+    const space = await Space.findOne({
+      _id: id,
+      organizationId: req.user._id
+    });
+
+    if (!space) {
+      return res.status(404).json({
+        success: false,
+        message: 'Space not found'
+      });
+    }
+
+    // Generate resource units
+    await availabilityService.generateResourceUnits(
+      id,
+      req.user._id.toString(),
+      value.count,
+      value.labelPrefix
+    );
+
+    // Get the updated units
+    const units = await ResourceUnit.find({
+      spaceId: id,
+      organizationId: req.user._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Resource units generated successfully',
+      data: { units }
+    });
+
+  } catch (error) {
+    console.error('Generate resource units error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get resource units for a space
+export const getSpaceResourceUnits = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    const { id } = req.params;
+
+    const space = await Space.findOne({
+      _id: id,
+      organizationId: req.user._id
+    });
+
+    if (!space) {
+      return res.status(404).json({
+        success: false,
+        message: 'Space not found'
+      });
+    }
+
+    const units = await ResourceUnit.find({
+      spaceId: id,
+      organizationId: req.user._id
+    }).sort({ label: 1 });
+
+    res.json({
+      success: true,
+      data: { units }
+    });
+
+  } catch (error) {
+    console.error('Get space resource units error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

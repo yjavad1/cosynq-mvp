@@ -7,6 +7,7 @@ export interface IBooking extends Document {
   organizationId: Types.ObjectId;
   spaceId: Types.ObjectId;
   contactId?: Types.ObjectId; // Optional - can be booked by non-contacts
+  resourceUnitId?: Types.ObjectId; // Optional - for pooled resources
   
   // Booking Details
   startTime: Date;
@@ -66,6 +67,11 @@ const bookingSchema = new Schema<IBooking>({
   contactId: {
     type: Schema.Types.ObjectId,
     ref: 'Contact',
+    index: true
+  },
+  resourceUnitId: {
+    type: Schema.Types.ObjectId,
+    ref: 'ResourceUnit',
     index: true
   },
   startTime: {
@@ -239,8 +245,18 @@ bookingSchema.index({ bookingReference: 1 });
 
 // Compound index for conflict checking
 bookingSchema.index({ 
+  organizationId: 1,
   spaceId: 1, 
   startTime: 1, 
+  endTime: 1,
+  status: 1 
+});
+
+// Index for resource unit queries
+bookingSchema.index({ 
+  organizationId: 1,
+  resourceUnitId: 1,
+  startTime: 1,
   endTime: 1,
   status: 1 
 });
