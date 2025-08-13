@@ -7,6 +7,7 @@ import {
   useDayAvailability, 
   useSpaceAvailabilityStats
 } from '../hooks/useBookingAvailability';
+import { TimeSlot } from '../services/bookingAvailability';
 
 export default function AvailabilityTestPage() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
@@ -300,7 +301,7 @@ export default function AvailabilityTestPage() {
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">⚠️ Booking Conflicts</h4>
                         <div className="space-y-3">
-                          {availabilityResult.conflicts.map((conflict, index) => (
+                          {availabilityResult.conflicts.map((conflict: any, index: number) => (
                             <div key={index} className={`p-4 rounded-lg border ${
                               conflict.severity === 'error' 
                                 ? 'bg-red-50 border-red-200' 
@@ -365,7 +366,7 @@ export default function AvailabilityTestPage() {
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">🚫 Validation Errors</h4>
                         <div className="space-y-3">
-                          {availabilityResult.errors.map((error, index) => (
+                          {availabilityResult.errors.map((error: any, index: number) => (
                             <div key={index} className="p-4 bg-red-50 border border-red-200 rounded-lg">
                               <div className="flex items-start space-x-3">
                                 <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -392,7 +393,7 @@ export default function AvailabilityTestPage() {
                       <div>
                         <h4 className="text-md font-semibold text-gray-900 mb-3">💡 Alternative Time Slots</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {availabilityResult.suggestions.map((suggestion, index) => (
+                          {availabilityResult.suggestions.map((suggestion: any, index: number) => (
                             <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
                               <div className="flex items-center justify-between">
                                 <div>
@@ -426,7 +427,7 @@ export default function AvailabilityTestPage() {
                 <div className="bg-white rounded-xl shadow-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Day Schedule Overview</h3>
                   <div className="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-1">
-                    {daySlots.map((slot, index) => (
+                    {daySlots.map((slot: TimeSlot, index: number) => (
                       <div
                         key={index}
                         className={`p-2 rounded text-xs text-center font-medium ${

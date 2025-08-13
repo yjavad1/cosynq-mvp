@@ -6,6 +6,7 @@ import locationRoutes from './locations';
 import productTypeRoutes from './productTypes';
 import bookingRoutes from './bookings';
 import onboardingRoutes from './onboarding';
+import whatsappRoutes from './whatsapp';
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ console.log('✅ Booking routes registered at /api/bookings');
 
 router.use('/onboarding', onboardingRoutes);
 console.log('✅ Onboarding routes registered at /api/onboarding');
+
+router.use('/whatsapp', whatsappRoutes);
+console.log('✅ WhatsApp routes registered at /api/whatsapp');
 
 router.get('/health', (_req, res) => {
   res.json({ 
@@ -88,7 +92,14 @@ router.get('/health', (_req, res) => {
       'GET /api/onboarding/status',
       'PUT /api/onboarding/data',
       'POST /api/onboarding/complete',
-      'POST /api/onboarding/reset'
+      'POST /api/onboarding/reset',
+      'GET /api/whatsapp/webhook',
+      'POST /api/whatsapp/webhook',
+      'POST /api/whatsapp/send-message',
+      'POST /api/whatsapp/send-template',
+      'GET /api/whatsapp/conversations',
+      'GET /api/whatsapp/conversation/:phoneNumber',
+      'GET /api/whatsapp/status'
     ]
   });
 });

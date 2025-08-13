@@ -428,17 +428,27 @@ class ApiService {
   }
 
   async createProductType(productTypeData: CreateProductTypeData): Promise<AxiosResponse<ApiResponse<{ productType: ProductType }>>> {
-    console.log('Creating product type with data:', JSON.stringify(productTypeData, null, 2));
-    return this.api.post('/product-types', productTypeData);
+    console.log('🚀 API SERVICE: Creating product type with data:', JSON.stringify(productTypeData, null, 2));
+    console.log('🚀 API SERVICE: Making POST request to /product-types');
+    const response = this.api.post('/product-types', productTypeData);
+    console.log('🚀 API SERVICE: POST request sent');
+    return response;
   }
 
   async updateProductType(id: string, productTypeData: Partial<CreateProductTypeData>): Promise<AxiosResponse<ApiResponse<{ productType: ProductType }>>> {
-    console.log('Updating product type:', id, 'with data:', JSON.stringify(productTypeData, null, 2));
-    return this.api.put(`/product-types/${id}`, productTypeData);
+    console.log('🚀 API SERVICE: Updating product type:', id, 'with data:', JSON.stringify(productTypeData, null, 2));
+    console.log('🚀 API SERVICE: Making PUT request to /product-types/' + id);
+    const response = this.api.put(`/product-types/${id}`, productTypeData);
+    console.log('🚀 API SERVICE: PUT request sent');
+    return response;
   }
 
   async deleteProductType(id: string): Promise<AxiosResponse<ApiResponse<{}>>> {
-    return this.api.delete(`/product-types/${id}`);
+    console.log('🚀 API SERVICE: Deleting product type:', id);
+    console.log('🚀 API SERVICE: Making DELETE request to /product-types/' + id);
+    const response = this.api.delete(`/product-types/${id}`);
+    console.log('🚀 API SERVICE: DELETE request sent');
+    return response;
   }
 
   async generateSpaces(productTypeId: string, count: number): Promise<AxiosResponse<ApiResponse<{ 

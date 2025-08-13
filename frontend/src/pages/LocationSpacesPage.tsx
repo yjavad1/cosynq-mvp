@@ -151,9 +151,9 @@ export default function LocationSpacesPage() {
   const { data: location, isLoading: locationLoading } = useLocationById(locationId!);
   
   // Debug component mount and state
-  console.log("🏗️ LocationSpacesPage mounted");
-  console.log("📍 Location ID from params:", locationId);
-  console.log("🏢 Location data:", location);
+  // console.log("🏗️ LocationSpacesPage mounted");
+  // console.log("📍 Location ID from params:", locationId);
+  // console.log("🏢 Location data:", location);
   
   // Check for existing product types for this location
   const { data: existingProductTypes, isLoading: productTypesLoading } = useProductTypes({
@@ -348,13 +348,13 @@ export default function LocationSpacesPage() {
         const createdProductType = await createProductType.mutateAsync(productTypeData);
         createdProductTypes.push(createdProductType);
         
-        console.log(`Created product type: ${createdProductType?._id}`);
+        console.log(`Created product type: ${(createdProductType as any)?._id}`);
 
         // Generate individual spaces for this product type
-        if (createdProductType?._id) {
-          console.log(`Generating ${product.quantity} spaces for product type: ${createdProductType._id}`);
+        if ((createdProductType as any)?._id) {
+          console.log(`Generating ${product.quantity} spaces for product type: ${(createdProductType as any)._id}`);
           await generateSpaces.mutateAsync({ 
-            productTypeId: createdProductType._id, 
+            productTypeId: (createdProductType as any)._id, 
             count: product.quantity 
           });
         }
@@ -380,29 +380,48 @@ export default function LocationSpacesPage() {
     }
   };
 
-  // Handle edit product type
-  const handleEditProductType = (productType: any) => {
-    setEditingProductType(productType);
-    setShowEditForm(true);
-  };
+  // Handle edit product type - TODO: Fix in future release
+  // const handleEditProductType = (productType: any) => {
+  //   console.log('📝 OPENING EDIT FORM FOR PRODUCT TYPE:', {
+  //     id: productType._id,
+  //     name: productType.name,
+  //     category: productType.category,
+  //     capacity: productType.capacity
+  //   });
+  //   setEditingProductType(productType);
+  //   setShowEditForm(true);
+  // };
 
-  // Handle delete product type
-  const handleDeleteProductType = (productType: any) => {
-    setDeletingProductType(productType);
-    setShowDeleteConfirm(true);
-  };
+  // Handle delete product type - TODO: Fix in future release
+  // const handleDeleteProductType = (productType: any) => {
+  //   console.log('🗑️ OPENING DELETE DIALOG FOR PRODUCT TYPE:', {
+  //     id: productType._id,
+  //     name: productType.name,
+  //     spacesCount: productType.generatedSpacesCount
+  //   });
+  //   setDeletingProductType(productType);
+  //   setShowDeleteConfirm(true);
+  // };
 
-  // Confirm deletion
+  // Simple confirm deletion
   const confirmDeleteProductType = async () => {
     if (!deletingProductType) return;
     
+    alert('🗑️ SIMPLE HANDLER: Deleting product type: ' + deletingProductType.name);
+    console.log('🗑️ SIMPLE HANDLER: Deleting product type:', deletingProductType._id);
+    
     try {
+      setSaveError(null);
       await deleteProductType.mutateAsync(deletingProductType._id);
+      
       setShowDeleteConfirm(false);
       setDeletingProductType(null);
+      
+      console.log('✅ SIMPLE HANDLER: Delete completed successfully');
     } catch (error: any) {
-      console.error('Error deleting product type:', error);
-      setSaveError(error.response?.data?.message || 'Failed to delete space type. It may have active bookings.');
+      console.error('❌ SIMPLE HANDLER: Error deleting product type:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to delete space type. It may have active bookings.';
+      setSaveError(errorMessage);
     }
   };
 
@@ -412,26 +431,11 @@ export default function LocationSpacesPage() {
     setDeletingProductType(null);
   };
 
-  // Handle save from edit form
-  const handleSaveSpaceType = async (formData: CreateProductTypeData) => {
-    try {
-      if (editingProductType) {
-        // Update existing product type
-        await updateProductType.mutateAsync({
-          id: editingProductType._id,
-          productTypeData: formData
-        });
-      } else {
-        // Create new product type
-        await createProductType.mutateAsync(formData);
-      }
-      setShowEditForm(false);
-      setEditingProductType(null);
-      setSaveError(null);
-    } catch (error: any) {
-      console.error('Error saving space type:', error);
-      setSaveError(error.response?.data?.message || 'Failed to save space type. Please try again.');
-    }
+  // Simple handle save from edit form - TODO: Fix in future release
+  const handleSaveSpaceType = async (_formData: CreateProductTypeData) => {
+    console.error('Space type CRUD operations disabled for production');
+    alert('Coming Soon: Space type creation/editing is being enhanced');
+    return;
   };
 
   // Handle close edit form
@@ -522,9 +526,43 @@ export default function LocationSpacesPage() {
           </div>
         </div>
 
+        {/* Error Display */}
+        {saveError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+              <p className="text-red-700 font-medium">Error</p>
+            </div>
+            <p className="text-red-600 mt-1">{saveError}</p>
+            <button 
+              onClick={() => setSaveError(null)}
+              className="mt-2 text-sm text-red-500 hover:text-red-700 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Configured Space Types */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Configured Space Types</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Configured Space Types</h3>
+            <button
+              onClick={() => {
+                // TODO: Fix in future release - Space type CRUD operations need debugging
+                alert('Coming Soon: Space type creation is being enhanced');
+                // setEditingProductType(null);
+                // setShowEditForm(true);
+              }}
+              disabled={true}
+              className="inline-flex items-center px-4 py-2 bg-gray-400 cursor-not-allowed text-white font-medium rounded-lg opacity-50"
+            >
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Coming Soon
+              </>
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {productTypes.map((productType: any) => (
               <div key={productType._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative group">
@@ -546,33 +584,58 @@ export default function LocationSpacesPage() {
                     </button>
                     <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-md shadow-lg border border-gray-200 hidden z-10">
                       <button
-                        onClick={() => handleEditProductType(productType)}
-                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => {
+                          // TODO: Fix in future release
+                          alert('Coming Soon: Edit functionality is being enhanced');
+                          // handleEditProductType(productType);
+                        }}
+                        disabled={true}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed opacity-50"
                       >
                         <Edit className="h-3 w-3 mr-2" />
-                        Edit
+                        Coming Soon
                       </button>
                       <button
-                        onClick={() => handleDeleteProductType(productType)}
-                        className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          // TODO: Fix in future release
+                          alert('Coming Soon: Delete functionality is being enhanced');
+                          // handleDeleteProductType(productType);
+                        }}
+                        disabled={true}
+                        className="flex items-center w-full px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed opacity-50"
                       >
                         <Trash2 className="h-3 w-3 mr-2" />
-                        Delete
+                        Coming Soon
                       </button>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-2 pr-8">
-                  <h4 className="font-medium text-gray-900">{productType.name}</h4>
+                  <div>
+                    <h4 className="font-medium text-gray-900">{productType.name}</h4>
+                    {productType.capacity?.optimalCapacity && (
+                      <p className="text-sm text-blue-600 font-medium">
+                        {productType.capacity.optimalCapacity} unit{productType.capacity.optimalCapacity > 1 ? 's' : ''} available
+                      </p>
+                    )}
+                  </div>
                   <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                     Active
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mb-2">{productType.description}</p>
-                <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
-                  <span>Capacity: {productType.capacity?.optimalCapacity || 'N/A'}</span>
-                  <span>₹{productType.pricing?.basePrice || 0}/hr</span>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="flex items-center text-gray-600">
+                      <Users className="h-4 w-4 mr-1" />
+                      {productType.capacity?.optimalCapacity || 'N/A'} capacity
+                    </span>
+                    <span className="flex items-center text-green-600 font-medium">
+                      <DollarSign className="h-4 w-4 mr-1" />
+                      ₹{productType.pricing?.basePrice || 0}/hr
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-blue-600 font-medium">Code: {productType.code}</span>

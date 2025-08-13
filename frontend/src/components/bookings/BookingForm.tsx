@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useContacts } from '../../hooks/useContacts';
-import { useSpaces } from '../../hooks/useSpaces';
+import { useSpaces, useSpace } from '../../hooks/useSpaces';
 import { useCreateBooking, useUpdateBooking, useSpaceAvailability } from '../../hooks/useBookings';
 // import { useBookingAvailabilityCheck, formatConflictMessage } from '../../hooks/useBookingAvailability';
 // import { ConflictResult } from '../../services/bookingAvailability';
@@ -27,6 +27,7 @@ interface BookingFormData {
   customerEmail?: string;
   customerPhone?: string;
   spaceId: string;
+  resourceUnitId?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -95,8 +96,8 @@ export function BookingForm({
   });
 
   // Watch form values for real-time validation
-  const watchedValues = watch(['spaceId', 'date', 'startTime', 'endTime']);
-  const [spaceId, date, startTime, endTime] = watchedValues;
+  const watchedValues = watch(['spaceId', 'resourceUnitId', 'date', 'startTime', 'endTime']);
+  const [spaceId, , date, startTime, endTime] = watchedValues;
 
   // Data fetching
   const { data: contactsData, isLoading: contactsLoading } = useContacts({
@@ -108,6 +109,9 @@ export function BookingForm({
     // Filter spaces by location if needed (spaces are already location-scoped in API)
     limit: 100
   });
+
+  // Fetch individual space data for fresh pooled units and capacity info
+  const { data: freshSpaceData } = useSpace(spaceId);
 
   // Enhanced availability checking with validation
   // const availabilityRequest = useMemo(() => {
@@ -153,6 +157,13 @@ export function BookingForm({
       }
     }
   }, [isEditing, existingBooking, isOpen]);
+
+  // Reset resourceUnitId when spaceId changes
+  useEffect(() => {
+    if (spaceId) {
+      setValue('resourceUnitId', undefined);
+    }
+  }, [spaceId, setValue]);
 
   // Generate time slots (30-minute intervals from 8 AM to 8 PM)
   const timeSlots = useMemo(() => {
@@ -287,8 +298,8 @@ export function BookingForm({
     }
   };
 
-  // Get selected space details
-  const selectedSpace = spacesData?.spaces?.find(space => space._id === spaceId);
+  // Get selected space details - use fresh data if available, fallback to list data
+  const selectedSpace = freshSpaceData || spacesData?.spaces?.find(space => space._id === spaceId);
 
   if (!isOpen) return null;
 
@@ -487,9 +498,37 @@ export function BookingForm({
                           <span>•</span>
                           <Users className="h-4 w-4" />
                           <span>Capacity: {selectedSpace.capacity}</span>
+                          {selectedSpace.capacity && selectedSpace.capacity > 1 && (
+                            <span className="text-blue-600 font-medium">• Multi-capacity space</span>
+                          )}
                         </div>
                         {selectedSpace.description && (
                           <p className="mt-1 text-sm text-gray-600">{selectedSpace.description}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Resource Unit Selection */}
+                    {selectedSpace?.hasPooledUnits && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Unit *
+                        </label>
+                        <select
+                          {...register('resourceUnitId', { 
+                            required: selectedSpace?.hasPooledUnits ? 'Unit selection is required' : false 
+                          })}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        >
+                          <option value="">Select a unit...</option>
+                          {selectedSpace.resourceUnits?.filter(unit => unit.isActive).map((unit) => (
+                            <option key={unit._id} value={unit._id}>
+                              {unit.name} ({unit.unitNumber})
+                            </option>
+                          ))}
+                        </select>
+                        {errors.resourceUnitId && (
+                          <p className="mt-1 text-sm text-red-600">{errors.resourceUnitId.message}</p>
                         )}
                       </div>
                     )}

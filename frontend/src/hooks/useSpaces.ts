@@ -16,9 +16,10 @@ export function useSpaces(params?: {
   minCapacity?: number;
   maxCapacity?: number;
   amenities?: string;
+  locationId?: string;
 }) {
   return useQuery({
-    queryKey: [SPACES_QUERY_KEY, params],
+    queryKey: [SPACES_QUERY_KEY, { locationId: params?.locationId, ...params }],
     queryFn: () => apiService.getSpaces(params),
     select: (response) => response.data.data,
     staleTime: 30000, // 30 seconds
@@ -31,6 +32,7 @@ export function useSpace(id: string) {
     queryFn: () => apiService.getSpace(id),
     select: (response) => response.data.data?.space,
     enabled: !!id,
+    staleTime: 5000, // 5 seconds - fresh data for booking form
   });
 }
 
@@ -84,10 +86,26 @@ export function useUpdateSpace() {
       console.log('Updating space:', id, 'with data:', data);
       return apiService.updateSpace(id, data);
     },
-    onSuccess: (response, { id }) => {
+    onSuccess: (response, { id, data }) => {
       console.log('Space update successful:', response);
+      const space = response.data.data?.space;
+      
+      // Invalidate spaces list with location filter
+      if (space?.locationId) {
+        queryClient.invalidateQueries({ queryKey: [SPACES_QUERY_KEY, { locationId: space.locationId }] });
+      }
       queryClient.invalidateQueries({ queryKey: [SPACES_QUERY_KEY] });
+      
+      // Update specific space cache
       queryClient.setQueryData([SPACES_QUERY_KEY, id], response.data);
+      
+      // If capacity or hasPooledUnits changed, invalidate related queries
+      if (data.hasPooledUnits !== undefined || data.capacity !== undefined) {
+        if (space?.hasPooledUnits) {
+          queryClient.invalidateQueries({ queryKey: ["resource-units", id] });
+        }
+      }
+      
       queryClient.invalidateQueries({ queryKey: [SPACE_STATS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [SPACE_AVAILABILITY_QUERY_KEY] });
     },

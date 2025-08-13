@@ -21,7 +21,7 @@ export const REAL_TIME_AVAILABILITY_QUERY_KEY = 'realtime-availability';
  * Provides conflict detection, business rules enforcement, and alternative suggestions
  */
 export const useBookingAvailabilityCheck = (request: AvailabilityRequest | null) => {
-  return useQuery<ConflictResult>({
+  return useQuery<ConflictResult, Error>({
     queryKey: [AVAILABILITY_QUERY_KEY, request],
     queryFn: async (): Promise<ConflictResult> => {
       if (!request) throw new Error('Availability request is required');
@@ -32,10 +32,7 @@ export const useBookingAvailabilityCheck = (request: AvailabilityRequest | null)
     gcTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: true, // Important for booking conflicts
     refetchInterval: 1000 * 30, // Refresh every 30 seconds for real-time accuracy
-    retry: 2,
-    onError: (error: Error) => {
-      console.error('❌ Availability check failed:', error);
-    }
+    retry: 2
   });
 };
 
@@ -63,7 +60,7 @@ export const useRealTimeAvailabilityCheck = (request: AvailabilityRequest | null
  * Perfect for calendar and time picker components
  */
 export const useDayAvailability = (spaceId: string | undefined, date: Date | string | undefined) => {
-  return useQuery<TimeSlot[]>({
+  return useQuery<TimeSlot[], Error>({
     queryKey: [DAY_AVAILABILITY_QUERY_KEY, spaceId, date],
     queryFn: async (): Promise<TimeSlot[]> => {
       if (!spaceId || !date) throw new Error('Space ID and date are required');
@@ -72,10 +69,7 @@ export const useDayAvailability = (spaceId: string | undefined, date: Date | str
     enabled: !!spaceId && !!date,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
-    refetchOnWindowFocus: true,
-    onSuccess: (data: TimeSlot[]) => {
-      console.log(`📅 Day availability loaded: ${data.filter((slot: TimeSlot) => slot.available).length} available slots`);
-    }
+    refetchOnWindowFocus: true
   });
 };
 
@@ -84,7 +78,7 @@ export const useDayAvailability = (spaceId: string | undefined, date: Date | str
  * Useful for space comparison and selection
  */
 export const useBulkAvailability = (request: BulkAvailabilityRequest | null) => {
-  return useQuery({
+  return useQuery<Map<string, TimeSlot[]>, Error>({
     queryKey: [BULK_AVAILABILITY_QUERY_KEY, request],
     queryFn: async (): Promise<Map<string, TimeSlot[]>> => {
       if (!request) throw new Error('Bulk availability request is required');
@@ -93,10 +87,7 @@ export const useBulkAvailability = (request: BulkAvailabilityRequest | null) => 
     enabled: !!request && !!request.spaceIds.length && !!request.date,
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 15, // 15 minutes
-    refetchOnWindowFocus: true,
-    onSuccess: (data: Map<string, TimeSlot[]>) => {
-      console.log(`🔍 Bulk availability loaded for ${data.size} spaces`);
-    }
+    refetchOnWindowFocus: true
   });
 };
 
@@ -214,9 +205,9 @@ export const useNextAvailableSlots = (spaceId: string | undefined, fromDate?: Da
     if (!daySlots) return [];
     
     return daySlots
-      .filter(slot => slot.available)
+      .filter((slot: TimeSlot) => slot.available)
       .slice(0, 10) // Next 10 available slots
-      .map(slot => ({
+      .map((slot: TimeSlot) => ({
         label: `${format(slot.startTime, 'h:mm a')} - ${format(slot.endTime, 'h:mm a')}`,
         value: slot.startTime.toISOString(),
         startTime: slot.startTime,
@@ -243,9 +234,9 @@ export const useSpaceAvailabilityStats = (spaceId: string | undefined, date: Dat
     }
 
     const totalSlots = daySlots.length;
-    const availableSlots = daySlots.filter(slot => slot.available).length;
+    const availableSlots = daySlots.filter((slot: TimeSlot) => slot.available).length;
     const bookedSlots = totalSlots - availableSlots;
-    const peakSlots = daySlots.filter(slot => slot.isPeak).length;
+    const peakSlots = daySlots.filter((slot: TimeSlot) => slot.isPeak).length;
     const occupancyRate = totalSlots > 0 ? Math.round((bookedSlots / totalSlots) * 100) : 0;
 
     return {

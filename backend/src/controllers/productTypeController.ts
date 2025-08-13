@@ -184,7 +184,7 @@ class ProductTypeController {
             message: 'Invalid location ID format'
           });
         }
-        filter.locationId = locationId;
+        filter.locationId = new mongoose.Types.ObjectId(locationId as string);
       }
 
       // Apply filters

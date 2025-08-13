@@ -354,6 +354,13 @@ export interface Space {
   type: SpaceType;
   status: SpaceStatus;
   capacity: number;
+  hasPooledUnits?: boolean;
+  resourceUnits?: Array<{
+    _id: string;
+    unitNumber: string;
+    name: string;
+    isActive: boolean;
+  }>;
   area?: number;
   floor?: string;
   room?: string;
@@ -385,6 +392,7 @@ export interface CreateSpaceData {
   type: SpaceType;
   status?: SpaceStatus;
   capacity: number;
+  hasPooledUnits?: boolean;
   area?: number;
   floor?: string;
   room?: string;
