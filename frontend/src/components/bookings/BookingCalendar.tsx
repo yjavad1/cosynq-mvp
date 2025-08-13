@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, Views, View, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { enUS } from 'date-fns/locale';
+import { formatInTimeZone } from 'date-fns-tz';
+import enUS from 'date-fns/locale/en-US';
 import { 
   useBookings, 
   transformBookingsForCalendar, 
@@ -252,7 +253,7 @@ export function BookingCalendar({
   );
 
   // Custom time gutter for business hours
-  const customTimeGutterFormat = (date: Date) => format(date, 'h:mm a');
+  const customTimeGutterFormat = (date: Date) => formatInTimeZone(date, 'Asia/Kolkata', 'h:mm a');
 
   // Loading state
   if (isLoading) {

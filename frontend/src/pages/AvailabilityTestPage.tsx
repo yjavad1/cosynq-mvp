@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Calendar, Clock, AlertCircle, CheckCircle, Lightbulb, Settings, Users, MapPin } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { useSpaces } from '../hooks/useSpaces';
 import { 
   useBookingAvailabilityCheck, 
@@ -371,7 +372,7 @@ export default function AvailabilityTestPage() {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="font-medium text-blue-900">
-                                    {format(new Date(suggestion.start), 'h:mm a')} - {format(new Date(suggestion.end), 'h:mm a')}
+                                    {formatInTimeZone(parseISO(suggestion.start), 'Asia/Kolkata', 'h:mm a')} - {formatInTimeZone(parseISO(suggestion.end), 'Asia/Kolkata', 'h:mm a')}
                                   </p>
                                 </div>
                                 <Lightbulb className="h-5 w-5 text-blue-600" />
@@ -403,9 +404,9 @@ export default function AvailabilityTestPage() {
                             ? 'bg-green-100 text-green-800 border border-green-200'
                             : 'bg-red-100 text-red-800 border border-red-200'
                         }`}
-                        title={`${format(new Date(slot.start), 'h:mm a')} - ${format(new Date(slot.end), 'h:mm a')} ${slot.available ? '(Available)' : '(Booked)'}`}
+                        title={`${formatInTimeZone(parseISO(slot.start), 'Asia/Kolkata', 'h:mm a')} - ${formatInTimeZone(parseISO(slot.end), 'Asia/Kolkata', 'h:mm a')} ${slot.available ? '(Available)' : '(Booked)'}`}
                       >
-                        {format(new Date(slot.start), 'h:mm')}
+                        {formatInTimeZone(parseISO(slot.start), 'Asia/Kolkata', 'h:mm')}
                       </div>
                     ))}
                   </div>
