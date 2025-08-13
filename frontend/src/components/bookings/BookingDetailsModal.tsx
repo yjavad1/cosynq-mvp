@@ -15,7 +15,8 @@ import {
   Trash2,
   User
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { BookingData, BookingStatus, PaymentStatus } from '../../services/bookingApi';
 
 interface BookingDetailsModalProps {
@@ -84,7 +85,7 @@ export function BookingDetailsModal({
     const date = new Date(dateTimeString);
     return {
       date: format(date, 'EEEE, MMMM do, yyyy'),
-      time: format(date, 'h:mm a')
+      time: formatInTimeZone(date, 'Asia/Kolkata', 'h:mm a')
     };
   };
 
@@ -306,7 +307,7 @@ export function BookingDetailsModal({
                           <div>
                             <span className="text-sm font-medium text-gray-600">Checked in:</span>
                             <span className="text-sm text-gray-900 ml-2">
-                              {format(new Date(booking.checkInTime), 'MMM do, yyyy at h:mm a')}
+                              {formatInTimeZone(parseISO(booking.checkInTime), 'Asia/Kolkata', 'MMM do, yyyy at h:mm a')}
                             </span>
                           </div>
                         )}
@@ -314,7 +315,7 @@ export function BookingDetailsModal({
                           <div>
                             <span className="text-sm font-medium text-gray-600">Checked out:</span>
                             <span className="text-sm text-gray-900 ml-2">
-                              {format(new Date(booking.checkOutTime), 'MMM do, yyyy at h:mm a')}
+                              {formatInTimeZone(parseISO(booking.checkOutTime), 'Asia/Kolkata', 'MMM do, yyyy at h:mm a')}
                             </span>
                           </div>
                         )}

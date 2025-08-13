@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
@@ -542,7 +543,7 @@ export function BookingForm({
                       >
                         {timeSlots.map((time) => (
                           <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
+                            {formatInTimeZone(new Date(`2024-01-01T${time}:00`), 'Asia/Kolkata', 'h:mm a')}
                           </option>
                         ))}
                       </select>
@@ -559,7 +560,7 @@ export function BookingForm({
                       >
                         {timeSlots.map((time) => (
                           <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
+                            {formatInTimeZone(new Date(`2024-01-01T${time}:00`), 'Asia/Kolkata', 'h:mm a')}
                           </option>
                         ))}
                       </select>
