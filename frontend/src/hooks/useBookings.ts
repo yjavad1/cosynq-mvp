@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { bookingApiService } from '../services/bookingApi';
 import {
   BookingData,
@@ -67,6 +68,142 @@ export const useBookingStats = () => {
   });
 };
 
+// Location-specific Booking Statistics Query
+export const useLocationBookingStats = (locationId: string | undefined) => {
+  const { data: bookingsData } = useBookings({
+    page: 1,
+    limit: 1000, // Get all bookings for calculations
+    sortBy: 'startTime',
+    sortOrder: 'desc'
+  });
+
+  return useMemo(() => {
+    if (!bookingsData?.bookings || !locationId) {
+      return {
+        totalBookings: 0,
+        todayBookings: 0,
+        thisWeekBookings: 0,
+        thisMonthBookings: 0,
+        totalRevenue: 0,
+        todayRevenue: 0,
+        thisWeekRevenue: 0,
+        thisMonthRevenue: 0,
+        averageBookingValue: 0,
+        occupancyRate: 0,
+        upcomingBookings: 0,
+        bookingsByStatus: [],
+        recentBookings: []
+      };
+    }
+
+    // Filter bookings for spaces in this location
+    const locationBookings = bookingsData.bookings.filter(booking => {
+      // Check if booking's space belongs to this location
+      if (typeof booking.spaceId === 'object' && (booking.spaceId as any)?.locationId) {
+        return (booking.spaceId as any).locationId === locationId;
+      }
+      // For now, if we can't determine location from space, include all bookings
+      // This can be enhanced when space data is properly populated
+      return true;
+    });
+
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - today.getDay());
+    
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    // Calculate various metrics
+    const totalBookings = locationBookings.length;
+    
+    const todayBookings = locationBookings.filter(booking => {
+      const bookingDate = new Date(booking.startTime);
+      return bookingDate >= today && bookingDate < tomorrow;
+    }).length;
+    
+    const thisWeekBookings = locationBookings.filter(booking => {
+      const bookingDate = new Date(booking.startTime);
+      return bookingDate >= thisWeekStart;
+    }).length;
+    
+    const thisMonthBookings = locationBookings.filter(booking => {
+      const bookingDate = new Date(booking.startTime);
+      return bookingDate >= thisMonthStart && bookingDate < nextMonthStart;
+    }).length;
+
+    // Revenue calculations
+    const totalRevenue = locationBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
+    
+    const todayRevenue = locationBookings
+      .filter(booking => {
+        const bookingDate = new Date(booking.startTime);
+        return bookingDate >= today && bookingDate < tomorrow;
+      })
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
+    
+    const thisWeekRevenue = locationBookings
+      .filter(booking => {
+        const bookingDate = new Date(booking.startTime);
+        return bookingDate >= thisWeekStart;
+      })
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
+    
+    const thisMonthRevenue = locationBookings
+      .filter(booking => {
+        const bookingDate = new Date(booking.startTime);
+        return bookingDate >= thisMonthStart && bookingDate < nextMonthStart;
+      })
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
+
+    const averageBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+
+    // Upcoming bookings (future bookings)
+    const upcomingBookings = locationBookings.filter(booking => {
+      const bookingStart = new Date(booking.startTime);
+      return bookingStart > now && (booking.status === 'Pending' || booking.status === 'Confirmed');
+    }).length;
+
+    // Bookings by status
+    const statusCounts = locationBookings.reduce((acc, booking) => {
+      acc[booking.status] = (acc[booking.status] || 0) + 1;
+      return acc;
+    }, {} as Record<BookingStatus, number>);
+
+    const bookingsByStatus = Object.entries(statusCounts).map(([status, count]) => ({
+      status: status as BookingStatus,
+      count
+    }));
+
+    // Recent bookings (last 5)
+    const recentBookings = locationBookings
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
+
+    return {
+      totalBookings,
+      todayBookings,
+      thisWeekBookings,
+      thisMonthBookings,
+      totalRevenue,
+      todayRevenue,
+      thisWeekRevenue,
+      thisMonthRevenue,
+      averageBookingValue,
+      occupancyRate: 0, // TODO: Calculate based on space capacity and time slots
+      upcomingBookings,
+      bookingsByStatus,
+      recentBookings
+    };
+  }, [bookingsData, locationId]);
+};
+
 // Space Availability Query
 export const useSpaceAvailability = (
   spaceId: string | undefined,
@@ -128,16 +265,57 @@ export const useCreateBooking = () => {
       console.error('Booking creation error:', err);
     },
     onSuccess: (data, variables) => {
-      // Invalidate and refetch bookings list and stats
+      console.log('✅ Booking created successfully:', data);
+      console.log('🔄 Invalidating React Query cache for immediate calendar update...');
+      
+      // Invalidate ALL booking-related queries to ensure calendar refreshes
       queryClient.invalidateQueries({ queryKey: [BOOKINGS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [BOOKING_STATS_QUERY_KEY] });
+      
+      // Invalidate location-specific booking stats
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey as any[];
+          return queryKey[0] === BOOKINGS_QUERY_KEY || 
+                 queryKey[0] === BOOKING_STATS_QUERY_KEY ||
+                 (queryKey[0] === 'location-booking-stats');
+        }
+      });
+      
+      // Force immediate refetch for space-specific queries
+      if (variables.spaceId) {
+        console.log('🔄 Invalidating space-specific bookings for spaceId:', variables.spaceId);
+        queryClient.invalidateQueries({ 
+          queryKey: [BOOKINGS_QUERY_KEY],
+          predicate: (query) => {
+            const queryKey = query.queryKey as any[];
+            return queryKey[1]?.spaceId === variables.spaceId;
+          }
+        });
+      }
       
       // Invalidate availability for the booked space
       queryClient.invalidateQueries({ 
         queryKey: [SPACE_AVAILABILITY_QUERY_KEY, variables.spaceId] 
       });
 
-      console.log('Booking created successfully:', data);
+      // Force immediate refetch of all active booking queries
+      console.log('🚀 Force refetching all booking queries...');
+      queryClient.refetchQueries({ 
+        queryKey: [BOOKINGS_QUERY_KEY],
+        type: 'active'
+      });
+      
+      // Additional aggressive cache invalidation for calendar
+      setTimeout(() => {
+        console.log('🔄 Secondary cache invalidation for calendar reliability...');
+        queryClient.invalidateQueries({ queryKey: [BOOKINGS_QUERY_KEY] });
+      }, 100);
+
+      // Dispatch custom event for direct calendar refresh
+      window.dispatchEvent(new CustomEvent('bookingCreated', { 
+        detail: { booking: data, variables } 
+      }));
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -376,13 +554,18 @@ export const useRefundPayment = () => {
 
 // Calendar Integration Helpers
 
-// Transform booking data for react-big-calendar
-export const transformBookingsForCalendar = (bookings: BookingData[]) => {
-  return bookings.map((booking) => ({
+// Centralized event adapter - tolerant to both field naming conventions
+function toCalendarEvent(booking: BookingData) {
+  // Normalize time fields to handle both start/end and startTime/endTime
+  const startTime = (booking as any).start || booking.startTime;
+  const endTime = (booking as any).end || booking.endTime;
+  
+  return {
     id: booking._id,
     title: `${booking.customerName || booking.contact?.firstName + ' ' + booking.contact?.lastName || 'Booking'} - ${booking.space?.name || 'Space'}`,
-    start: new Date(booking.startTime),
-    end: new Date(booking.endTime),
+    start: new Date(startTime),
+    end: new Date(endTime),
+    status: booking.status, // Add status at root level for easy filtering
     resource: {
       booking,
       status: booking.status,
@@ -394,7 +577,14 @@ export const transformBookingsForCalendar = (bookings: BookingData[]) => {
       currency: booking.currency,
       bookingReference: booking.bookingReference,
     },
-  }));
+  };
+}
+
+// Transform booking data for react-big-calendar with cancellation filtering
+export const transformBookingsForCalendar = (bookings: BookingData[], showCancelled: boolean = false) => {
+  return bookings
+    .filter((booking) => showCancelled || booking.status !== 'Cancelled') // Filter cancelled by default
+    .map(toCalendarEvent);
 };
 
 // Get booking status color for calendar display

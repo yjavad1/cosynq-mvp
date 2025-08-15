@@ -5,12 +5,21 @@ import { Contact } from '../models/Contact';
 import { AuthRequest } from '../middleware/auth';
 import Joi from 'joi';
 import mongoose from 'mongoose';
+import { 
+  validateBookingTime, 
+  generateAvailableTimeSlots, 
+  getCurrentTimeInTimezone,
+  formatTimeValidationErrors,
+  canModifyBooking,
+  canCancelBooking,
+  DEFAULT_TIME_CONFIG 
+} from '../utils/timeValidation';
 
 // Validation schemas
 const createBookingSchema = Joi.object({
   spaceId: Joi.string().required(),
   contactId: Joi.string().allow('').optional(),
-  startTime: Joi.date().required(),
+  startTime: Joi.date().min('now').required(),
   endTime: Joi.date().greater(Joi.ref('startTime')).required(),
   
   // Customer Information (for non-contact bookings)
@@ -138,30 +147,70 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
       filter.status = status;
     }
 
-    // Date range filter
+    // Date range filter - tolerant to both start/end and startTime/endTime fields
+    let dateRangeFilter: any = {};
     if (startDate || endDate) {
-      filter.startTime = {};
-      if (startDate) {
-        filter.startTime.$gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        filter.startTime.$lte = new Date(endDate as string);
+      const fromDate = startDate ? new Date(startDate as string) : null;
+      const toDate = endDate ? new Date(endDate as string) : null;
+      
+      if (fromDate && toDate) {
+        // Range overlap query supporting both field naming conventions
+        dateRangeFilter = {
+          $or: [
+            // Modern field names (start/end) - preferred
+            { start: { $lt: toDate }, end: { $gt: fromDate } },
+            // Legacy field names (startTime/endTime) - fallback
+            { startTime: { $gte: fromDate, $lte: toDate } }
+          ]
+        };
+      } else if (fromDate) {
+        dateRangeFilter = {
+          $or: [
+            { start: { $gte: fromDate } },
+            { startTime: { $gte: fromDate } }
+          ]
+        };
+      } else if (toDate) {
+        dateRangeFilter = {
+          $or: [
+            { end: { $lte: toDate } },
+            { endTime: { $lte: toDate } }
+          ]
+        };
       }
     }
 
     // Search functionality
+    let searchFilter: any = {};
     if (search) {
-      filter.$or = [
-        { customerName: new RegExp(search as string, 'i') },
-        { customerEmail: new RegExp(search as string, 'i') },
-        { purpose: new RegExp(search as string, 'i') },
-        { bookingReference: new RegExp(search as string, 'i') }
-      ];
+      searchFilter = {
+        $or: [
+          { customerName: new RegExp(search as string, 'i') },
+          { customerEmail: new RegExp(search as string, 'i') },
+          { purpose: new RegExp(search as string, 'i') },
+          { bookingReference: new RegExp(search as string, 'i') }
+        ]
+      };
     }
 
-    // Build sort object
+    // Combine filters properly
+    if (Object.keys(dateRangeFilter).length > 0 && Object.keys(searchFilter).length > 0) {
+      filter = { ...filter, ...dateRangeFilter, ...searchFilter };
+    } else if (Object.keys(dateRangeFilter).length > 0) {
+      filter = { ...filter, ...dateRangeFilter };
+    } else if (Object.keys(searchFilter).length > 0) {
+      filter = { ...filter, ...searchFilter };
+    }
+
+    // Build sort object - tolerant to both field naming conventions
     const sortObj: any = {};
-    sortObj[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === 'startTime') {
+      // Sort by both start and startTime fields to handle mixed data
+      sortObj.start = sortOrder === 'desc' ? -1 : 1;
+      sortObj.startTime = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      sortObj[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+    }
 
     console.log('Filter applied:', JSON.stringify(filter, null, 2));
 
@@ -183,10 +232,20 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
 
     console.log(`Found ${bookings.length} bookings out of ${total} total`);
 
+    // Normalize response fields to ensure both startTime/endTime and start/end are available
+    const normalizedBookings = bookings.map((booking: any) => ({
+      ...booking,
+      // Ensure both field naming conventions are available
+      startTime: booking.startTime || booking.start,
+      endTime: booking.endTime || booking.end,
+      start: booking.start || booking.startTime,
+      end: booking.end || booking.endTime
+    }));
+
     res.json({
       success: true,
       data: {
-        bookings,
+        bookings: normalizedBookings,
         pagination: {
           currentPage: pageNum,
           totalPages,
@@ -271,6 +330,16 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     console.log('User ID:', req.user?._id);
     console.log('User object:', req.user);
 
+    // Tolerant mapping for legacy keys (safety net)
+    if (!req.body.startTime && req.body.start) {
+      console.log('🔄 Mapping legacy field: start -> startTime');
+      req.body.startTime = req.body.start;
+    }
+    if (!req.body.endTime && req.body.end) {
+      console.log('🔄 Mapping legacy field: end -> endTime');
+      req.body.endTime = req.body.end;
+    }
+
     const { error, value } = createBookingSchema.validate(req.body, {
       abortEarly: false,
       stripUnknown: true
@@ -316,7 +385,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     const space = await Space.findOne({
       _id: value.spaceId,
       organizationId
-    }).populate('locationId');
+    }).populate('locationId', 'operatingHours timezone allowSameDayBooking name');
 
     if (!space) {
       return res.status(404).json({
@@ -325,11 +394,56 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const location = space.locationId as any; // Type assertion for populated location
+
+    // Enhanced Time Validation
+    console.log('=== ENHANCED TIME VALIDATION ===');
+    const timeValidation = validateBookingTime(
+      value.startTime,
+      value.endTime,
+      location,
+      {
+        minimumAdvanceMinutes: DEFAULT_TIME_CONFIG.minimumAdvanceMinutes,
+        maximumAdvanceDays: space.advanceBookingLimit || DEFAULT_TIME_CONFIG.maximumAdvanceDays,
+        allowPastBookings: false,
+        respectOperatingHours: true
+      }
+    );
+
+    console.log('Time validation result:', timeValidation);
+
+    if (!timeValidation.isValid) {
+      const formattedError = formatTimeValidationErrors(timeValidation);
+      console.error('Time validation failed:', formattedError);
+      
+      return res.status(400).json({
+        success: false,
+        message: formattedError.message,
+        timeValidation: {
+          errors: formattedError.details,
+          warnings: formattedError.warnings,
+          timeUntilBooking: timeValidation.timeUntilBooking,
+          timezone: location?.timezone || 'Asia/Kolkata',
+          businessRules: {
+            minimumAdvanceMinutes: DEFAULT_TIME_CONFIG.minimumAdvanceMinutes,
+            maximumAdvanceDays: space.advanceBookingLimit || DEFAULT_TIME_CONFIG.maximumAdvanceDays,
+            allowSameDayBooking: location?.allowSameDayBooking ?? space.allowSameDayBooking,
+            respectOperatingHours: true
+          }
+        }
+      });
+    }
+
+    // Log successful time validation with warnings
+    if (timeValidation.warnings.length > 0) {
+      console.warn('Time validation warnings:', timeValidation.warnings);
+    }
+
     // Validate contact if provided
     if (hasContact) {
       console.log('Validating contact:', value.contactId);
       const contact = await Contact.findOne({
-        _id: value.contactId,
+        _id: value.contactId.toString(),
         organizationId
       });
 
@@ -360,8 +474,8 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check attendee count against space capacity
-    if (value.attendeeCount > space.capacity) {
+    // Check attendee count against space capacity (only if capacity is set and not null for unlimited)
+    if (space.capacity !== null && value.attendeeCount > space.capacity) {
       return res.status(400).json({
         success: false,
         message: `Space capacity is ${space.capacity} people, but ${value.attendeeCount} attendees requested`
@@ -433,7 +547,15 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     const booking = new Booking(finalData);
     await booking.save();
 
-    console.log('Booking created successfully:', booking.bookingReference);
+    console.log('✅ BOOKING_CREATED:', JSON.stringify({
+      action: 'booking_created',
+      bookingRef: booking.bookingReference,
+      _id: booking._id.toString(),
+      spaceId: booking.spaceId.toString(),
+      start: booking.startTime.toISOString(),
+      end: booking.endTime.toISOString(),
+      orgId: booking.organizationId.toString()
+    }));
 
     // Populate the created booking for response
     const populatedBooking = await Booking.findById(booking._id)
@@ -442,10 +564,20 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
       .populate('createdBy', 'firstName lastName')
       .populate('updatedBy', 'firstName lastName');
 
+    // Normalize response fields to ensure both field naming conventions are available
+    const normalizedBooking = populatedBooking ? {
+      ...populatedBooking.toObject(),
+      // Ensure both field naming conventions are available
+      startTime: populatedBooking.startTime,
+      endTime: populatedBooking.endTime,
+      start: populatedBooking.startTime,
+      end: populatedBooking.endTime
+    } : booking;
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
-      data: { booking: populatedBooking }
+      data: { booking: normalizedBooking }
     });
 
   } catch (error: any) {
@@ -543,12 +675,24 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if booking can be modified
+    // Check if booking can be modified using enhanced time validation
     if (value.startTime || value.endTime) {
-      if (!existingBooking.canBeModified()) {
+      const space = await Space.findById(existingBooking.spaceId).populate('locationId', 'timezone');
+      const location = space?.locationId as any;
+      const timezone = location?.timezone || 'Asia/Kolkata';
+      
+      const modificationCheck = canModifyBooking(existingBooking.startTime, timezone, 4);
+      
+      if (!modificationCheck.canModify) {
         return res.status(400).json({
           success: false,
-          message: 'Booking cannot be modified less than 4 hours before start time'
+          message: modificationCheck.reason,
+          timeValidation: {
+            canModify: false,
+            hoursRemaining: modificationCheck.hoursRemaining,
+            timezone: timezone,
+            minimumHoursRequired: 4
+          }
         });
       }
 
@@ -648,11 +792,23 @@ export const deleteBooking = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if booking can be cancelled
-    if (!existingBooking.canBeCancelled()) {
+    // Check if booking can be cancelled using enhanced time validation
+    const space = await Space.findById(existingBooking.spaceId).populate('locationId', 'timezone');
+    const location = space?.locationId as any;
+    const timezone = location?.timezone || 'Asia/Kolkata';
+    
+    const cancellationCheck = canCancelBooking(existingBooking.startTime, timezone, 2);
+    
+    if (!cancellationCheck.canCancel) {
       return res.status(400).json({
         success: false,
-        message: 'Booking cannot be cancelled less than 2 hours before start time'
+        message: cancellationCheck.reason,
+        timeValidation: {
+          canCancel: false,
+          hoursRemaining: cancellationCheck.hoursRemaining,
+          timezone: timezone,
+          minimumHoursRequired: 2
+        }
       });
     }
 
@@ -685,7 +841,7 @@ export const deleteBooking = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Check space availability for a specific date
+// Check space availability for a specific date with enhanced time validation
 export const checkSpaceAvailability = async (req: AuthRequest, res: Response) => {
   try {
     const { spaceId } = req.params;
@@ -727,28 +883,53 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
       });
     }
 
-    // Check if date is in the past
-    const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    
-    if (targetDate < today) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot check availability for past dates'
-      });
-    }
-
     // Validate space exists and belongs to organization
     const space = await Space.findOne({
       _id: spaceId,
       organizationId
-    }).populate('locationId', 'operatingHours timezone');
+    }).populate('locationId', 'operatingHours timezone allowSameDayBooking name');
 
     if (!space) {
       return res.status(404).json({
         success: false,
         message: 'Space not found or does not belong to your organization'
+      });
+    }
+
+    const location = space.locationId as any; // Type assertion for populated location
+    const timezone = location?.timezone || 'Asia/Kolkata';
+    
+    // Get current time in location's timezone
+    const now = getCurrentTimeInTimezone(timezone);
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    // Enhanced time validation: Check if date is in the past
+    if (targetDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot check availability for past dates',
+        timeValidation: {
+          requestedDate: targetDate.toISOString().split('T')[0],
+          currentDate: now.toISOString().split('T')[0],
+          timezone: timezone,
+          reason: 'Past date not allowed'
+        }
+      });
+    }
+
+    // Same-day booking validation
+    const isToday = targetDate.toDateString() === today.toDateString();
+    if (isToday && location && !location.allowSameDayBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'Same-day bookings are not allowed for this location',
+        timeValidation: {
+          requestedDate: targetDate.toISOString().split('T')[0],
+          isToday: true,
+          allowSameDayBooking: false,
+          reason: 'Same-day booking policy restriction'
+        }
       });
     }
 
@@ -765,63 +946,84 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
       startTime: { $gte: startOfDay, $lte: endOfDay }
     }).sort({ startTime: 1 });
 
-    // Generate available time slots based on space operating hours
-    // For now, using default 9 AM to 6 PM, but this should be enhanced to use actual location operating hours
-    const operatingStart = new Date(targetDate);
-    operatingStart.setHours(9, 0, 0, 0);
-    
-    const operatingEnd = new Date(targetDate);
-    operatingEnd.setHours(18, 0, 0, 0);
+    // Convert existing bookings format for time slot generation
+    const existingBookingSlots = existingBookings.map(booking => ({
+      startTime: booking.startTime,
+      endTime: booking.endTime
+    }));
 
-    const availableSlots = [];
-    const slotDuration = value.duration; // in minutes
-    
-    let currentSlotStart = new Date(operatingStart);
-    
-    while (currentSlotStart.getTime() + (slotDuration * 60 * 1000) <= operatingEnd.getTime()) {
-      const currentSlotEnd = new Date(currentSlotStart.getTime() + (slotDuration * 60 * 1000));
-      
-      // Check if this slot conflicts with any existing booking
-      const hasConflict = existingBookings.some(booking => {
-        return (
-          (currentSlotStart < booking.endTime) && 
-          (currentSlotEnd > booking.startTime)
-        );
-      });
-      
-      if (!hasConflict) {
-        availableSlots.push({
-          startTime: new Date(currentSlotStart),
-          endTime: new Date(currentSlotEnd),
-          duration: slotDuration,
-          isAvailable: true
-        });
-      }
-      
-      // Move to next 30-minute slot
-      currentSlotStart = new Date(currentSlotStart.getTime() + (30 * 60 * 1000));
-    }
+    // Generate available time slots using enhanced time validation
+    const availableSlots = generateAvailableTimeSlots(
+      targetDate,
+      value.duration,
+      location,
+      existingBookingSlots
+    );
 
-    console.log(`Found ${availableSlots.length} available slots for ${targetDate.toDateString()}`);
+    // Filter slots that pass business rule validation
+    const validatedSlots = availableSlots.map(slot => {
+      const validation = validateBookingTime(
+        slot.startTime,
+        slot.endTime,
+        location,
+        { 
+          minimumAdvanceMinutes: DEFAULT_TIME_CONFIG.minimumAdvanceMinutes,
+          respectOperatingHours: true 
+        }
+      );
 
+      return {
+        startTime: slot.startTime.toISOString(),
+        endTime: slot.endTime.toISOString(),
+        duration: value.duration,
+        isAvailable: slot.isAvailable && validation.isValid,
+        validationErrors: validation.errors,
+        validationWarnings: validation.warnings,
+        timeUntilBooking: validation.timeUntilBooking
+      };
+    });
+
+    // Separate available and unavailable slots
+    const availableValidSlots = validatedSlots.filter(slot => slot.isAvailable);
+    const unavailableSlots = validatedSlots.filter(slot => !slot.isAvailable);
+
+    console.log(`Found ${availableValidSlots.length} available slots for ${targetDate.toDateString()}`);
+
+    // Enhanced response with time validation details
     res.json({
       success: true,
       data: {
         spaceId: space._id,
         date: targetDate.toISOString().split('T')[0],
-        duration: slotDuration,
-        isAvailable: availableSlots.length > 0,
-        availableSlots: availableSlots.map(slot => ({
-          startTime: slot.startTime.toISOString(),
-          endTime: slot.endTime.toISOString()
-        })),
+        duration: value.duration,
+        isAvailable: availableValidSlots.length > 0,
+        
+        // Available time slots (only future, valid ones)
+        availableSlots: availableValidSlots,
+        
+        // Unavailable slots for reference
+        unavailableSlots: unavailableSlots.slice(0, 5), // Limit to prevent large responses
+        
+        // Existing bookings causing conflicts
         conflictingBookings: existingBookings.map(booking => ({
           bookingId: booking._id.toString(),
           startTime: booking.startTime.toISOString(),
           endTime: booking.endTime.toISOString(),
-          status: booking.status
+          status: booking.status,
+          customerName: booking.customerName
         })),
-        // Additional info for debugging
+        
+        // Time validation context
+        timeValidation: {
+          timezone: timezone,
+          currentTime: now.toISOString(),
+          isToday: isToday,
+          allowSameDayBooking: location?.allowSameDayBooking ?? true,
+          minimumAdvanceMinutes: DEFAULT_TIME_CONFIG.minimumAdvanceMinutes,
+          onlyFutureSlots: true
+        },
+        
+        // Space and location information
         space: {
           id: space._id,
           name: space.name,
@@ -829,7 +1031,21 @@ export const checkSpaceAvailability = async (req: AuthRequest, res: Response) =>
           minimumBookingDuration: space.minimumBookingDuration,
           maximumBookingDuration: space.maximumBookingDuration
         },
-        totalAvailableSlots: availableSlots.length
+        
+        location: location ? {
+          id: location._id,
+          name: location.name,
+          timezone: location.timezone,
+          allowSameDayBooking: location.allowSameDayBooking
+        } : null,
+        
+        // Summary statistics
+        summary: {
+          totalSlotsGenerated: validatedSlots.length,
+          availableSlots: availableValidSlots.length,
+          conflictingSlots: unavailableSlots.length,
+          existingBookings: existingBookings.length
+        }
       }
     });
 
