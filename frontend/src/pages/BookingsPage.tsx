@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Calendar, Users, DollarSign, AlertTriangle, Clock, Plus } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Users, DollarSign, AlertTriangle, Clock, Plus, X, Eye } from 'lucide-react';
 import { Breadcrumb } from '../components/navigation/Breadcrumb';
 import { BookingCalendar } from '../components/bookings/BookingCalendar';
 import { BookingForm } from '../components/bookings/BookingForm';
+import { BookingDetailsModal } from '../components/bookings/BookingDetailsModal';
+import { CancelBookingDialog } from '../components/bookings/CancelBookingDialog';
 import { useLocation } from '../hooks/useLocations';
-import { useBookings, useBookingStats } from '../hooks/useBookings';
+import { useBookings, useBookingStats, useDeleteBooking } from '../hooks/useBookings';
+import { BookingData } from '../services/bookingApi';
 import { View, Views } from 'react-big-calendar';
 
 export default function BookingsPage() {
@@ -14,6 +17,18 @@ export default function BookingsPage() {
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<Date | undefined>();
   const [prefilledSpaceId, setPrefilledSpaceId] = useState<string | undefined>();
+  
+  // Booking details modal state
+  const [selectedBooking, setSelectedBooking] = useState<BookingData | null>(null);
+  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
+  
+  
+  // Cancel booking state
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState<BookingData | null>(null);
+  
+  // Cancelled bookings panel state
+  const [showCancelledPanel, setShowCancelledPanel] = useState(false);
   
   // Fetch location details
   const { data: location, isLoading: isLoadingLocation, error: locationError } = useLocation(locationId!);
@@ -29,10 +44,18 @@ export default function BookingsPage() {
     sortOrder: 'asc'
   });
 
+  // Mutations
+  const deleteBookingMutation = useDeleteBooking();
+  
+  // Filter cancelled bookings
+  const cancelledBookings = useMemo(() => {
+    return bookingsData?.bookings?.filter(booking => booking.status === 'Cancelled') || [];
+  }, [bookingsData]);
+  
   // Handle booking event clicks
-  const handleBookingClick = (booking: any) => {
-    console.log('Booking clicked:', booking);
-    // TODO: Open booking detail modal or navigate to booking detail page
+  const handleBookingClick = (booking: BookingData) => {
+    setSelectedBooking(booking);
+    setIsBookingDetailsOpen(true);
   };
 
   // Handle calendar slot clicks for creating new bookings
@@ -52,9 +75,52 @@ export default function BookingsPage() {
   // Handle booking form success
   const handleBookingFormSuccess = () => {
     setIsBookingFormOpen(false);
+    setSelectedBooking(null);
     setPrefilledDate(undefined);
     setPrefilledSpaceId(undefined);
     // The bookings query will automatically refresh due to React Query cache invalidation
+  };
+  
+  // Handle edit booking
+  const handleEditBooking = (booking: BookingData) => {
+    setSelectedBooking(booking);
+    setIsBookingDetailsOpen(false);
+    setIsBookingFormOpen(true);
+  };
+  
+  // Handle cancel booking request
+  const handleCancelBookingRequest = (booking: BookingData) => {
+    setBookingToCancel(booking);
+    setIsBookingDetailsOpen(false);
+    setIsCancelDialogOpen(true);
+  };
+  
+  // Handle confirm cancel booking
+  const handleConfirmCancelBooking = async (booking: BookingData, reason: string) => {
+    try {
+      await deleteBookingMutation.mutateAsync({ 
+        id: booking._id, 
+        cancelReason: reason 
+      });
+      setIsCancelDialogOpen(false);
+      setBookingToCancel(null);
+      setSelectedBooking(null);
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      // Error will be handled by the mutation error handling
+    }
+  };
+  
+  // Handle close booking details
+  const handleCloseBookingDetails = () => {
+    setIsBookingDetailsOpen(false);
+    setSelectedBooking(null);
+  };
+  
+  // Handle close cancel dialog
+  const handleCloseCancelDialog = () => {
+    setIsCancelDialogOpen(false);
+    setBookingToCancel(null);
   };
 
   // Loading state
@@ -139,6 +205,21 @@ export default function BookingsPage() {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Cancelled Bookings Toggle */}
+              {cancelledBookings.length > 0 && (
+                <button
+                  onClick={() => setShowCancelledPanel(!showCancelledPanel)}
+                  className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-colors ${
+                    showCancelledPanel
+                      ? 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
+                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelled ({cancelledBookings.length})
+                </button>
+              )}
+              
               {/* Create Booking Button */}
               <button
                 onClick={handleCreateBooking}
@@ -295,6 +376,111 @@ export default function BookingsPage() {
           />
         </div>
 
+        {/* Cancelled Bookings Panel */}
+        {showCancelledPanel && cancelledBookings.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-sm border border-red-200">
+            <div className="px-6 py-4 border-b border-red-100 bg-red-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <X className="h-5 w-5 text-red-600" />
+                  <h3 className="text-lg font-medium text-red-900">
+                    Cancelled Bookings ({cancelledBookings.length})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowCancelledPanel(false)}
+                  className="text-red-400 hover:text-red-600 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-red-700">
+                These bookings have been cancelled and are not shown on the calendar.
+              </p>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                {cancelledBookings.map((booking) => (
+                  <div
+                    key={booking._id}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-red-200 hover:bg-red-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                              <X className="h-4 w-4 text-red-600" />
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {booking.customerName || 
+                                 (typeof booking.contactId === 'object' && booking.contactId 
+                                   ? `${(booking.contactId as any).firstName} ${(booking.contactId as any).lastName}` 
+                                   : 'Unknown Customer')}
+                              </p>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Cancelled
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1" />
+                                {new Date(booking.startTime).toLocaleDateString()} • {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                              <div className="flex items-center">
+                                <MapPin className="h-4 w-4 mr-1" />
+                                {typeof booking.spaceId === 'object' && booking.spaceId 
+                                  ? (booking.spaceId as any).name 
+                                  : 'Unknown Space'}
+                              </div>
+                              <div className="flex items-center">
+                                <Users className="h-4 w-4 mr-1" />
+                                {booking.attendeeCount} attendees
+                              </div>
+                            </div>
+                            {booking.cancelReason && (
+                              <div className="mt-2 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                                <strong>Reason:</strong> {booking.cancelReason}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 ml-4">
+                        <span className="text-sm font-medium text-gray-900">
+                          {booking.bookingReference}
+                        </span>
+                        <button
+                          onClick={() => handleBookingClick(booking)}
+                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {cancelledBookings.length === 0 && (
+                <div className="text-center py-8">
+                  <X className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No cancelled bookings</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    There are currently no cancelled bookings to display.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
         {!isLoadingBookings && (!bookingsData?.bookings || bookingsData.bookings.length === 0) && (
           <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-8">
@@ -344,12 +530,34 @@ export default function BookingsPage() {
         <BookingForm
           locationId={locationId}
           isOpen={isBookingFormOpen}
-          onClose={() => setIsBookingFormOpen(false)}
+          onClose={() => {
+            setIsBookingFormOpen(false);
+            setSelectedBooking(null);
+          }}
           onSuccess={handleBookingFormSuccess}
           prefilledSpaceId={prefilledSpaceId}
           prefilledDate={prefilledDate}
         />
       )}
+      
+      {/* Booking Details Modal */}
+      <BookingDetailsModal
+        booking={selectedBooking}
+        isOpen={isBookingDetailsOpen}
+        onClose={handleCloseBookingDetails}
+        onEdit={handleEditBooking}
+        onCancel={handleCancelBookingRequest}
+        isLoading={deleteBookingMutation.isPending}
+      />
+      
+      {/* Cancel Booking Confirmation Dialog */}
+      <CancelBookingDialog
+        booking={bookingToCancel}
+        isOpen={isCancelDialogOpen}
+        onClose={handleCloseCancelDialog}
+        onConfirm={handleConfirmCancelBooking}
+        isLoading={deleteBookingMutation.isPending}
+      />
     </div>
   );
 }

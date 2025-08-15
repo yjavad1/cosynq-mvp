@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
-import { X, Calendar, Clock, Users, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
+import { X, Calendar, Clock, Users, MapPin, AlertCircle, Search } from 'lucide-react';
 import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
-import { useCreateBooking, useSpaceAvailability } from '../../hooks/useBookings';
+import { useCreateBooking } from '../../hooks/useBookings';
 import { CreateBookingData } from '../../services/bookingApi';
+import TimeSlotSelector from './TimeSlotSelector';
 
 interface BookingFormProps {
   locationId: string;
@@ -41,8 +42,9 @@ export function BookingForm({
 }: BookingFormProps) {
   const [contactSearch, setContactSearch] = useState('');
   const [selectedContact, setSelectedContact] = useState<any>(null);
-  const [availabilityChecking, setAvailabilityChecking] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState<string>('');
+  const [timeSlotValid, setTimeSlotValid] = useState(false);
+  const [timeSlotError, setTimeSlotError] = useState<string>('');
+  const [timeSlotWarnings, setTimeSlotWarnings] = useState<string[]>([]);
 
   // Form setup
   const {
@@ -56,8 +58,8 @@ export function BookingForm({
     defaultValues: {
       spaceId: prefilledSpaceId || '',
       date: prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-      startTime: '09:00',
-      endTime: '10:00',
+      startTime: '',
+      endTime: '',
       attendeeCount: 1,
       purpose: '',
       specialRequests: '',
@@ -80,33 +82,8 @@ export function BookingForm({
     limit: 100
   });
 
-  // Availability checking
-  const { 
-    data: availabilityData, 
-    isLoading: availabilityLoading 
-  } = useSpaceAvailability(
-    spaceId,
-    date && spaceId ? date : undefined,
-    startTime && endTime ? calculateDuration(startTime, endTime) : undefined
-  );
-
   // Mutations
   const createBookingMutation = useCreateBooking();
-
-  // Generate time slots (30-minute intervals from 8 AM to 8 PM)
-  const timeSlots = useMemo(() => {
-    const slots = [];
-    const start = new Date();
-    start.setHours(8, 0, 0, 0);
-    const end = new Date();
-    end.setHours(20, 0, 0, 0);
-    
-    while (start < end) {
-      slots.push(format(start, 'HH:mm'));
-      start.setMinutes(start.getMinutes() + 30);
-    }
-    return slots;
-  }, []);
 
   // Filter contacts based on search
   const filteredContacts = useMemo(() => {
@@ -120,7 +97,7 @@ export function BookingForm({
     );
   }, [contactsData?.contacts, contactSearch]);
 
-  // Calculate duration in minutes
+  // Calculate duration in minutes for display
   function calculateDuration(start: string, end: string): number {
     const [startHour, startMin] = start.split(':').map(Number);
     const [endHour, endMin] = end.split(':').map(Number);
@@ -131,30 +108,18 @@ export function BookingForm({
     return endMinutes - startMinutes;
   }
 
-  // Validate time selection
-  useEffect(() => {
-    if (startTime && endTime) {
-      const duration = calculateDuration(startTime, endTime);
-      if (duration <= 0) {
-        setAvailabilityError('End time must be after start time');
-      } else if (duration < 30) {
-        setAvailabilityError('Minimum booking duration is 30 minutes');
-      } else if (duration > 480) {
-        setAvailabilityError('Maximum booking duration is 8 hours');
-      } else {
-        setAvailabilityError('');
-      }
-    }
-  }, [startTime, endTime]);
+  // Handle time slot selection from TimeSlotSelector
+  const handleTimeSlotSelect = (selectedStartTime: string, selectedEndTime: string) => {
+    setValue('startTime', selectedStartTime);
+    setValue('endTime', selectedEndTime);
+  };
 
-  // Check availability when form values change
-  useEffect(() => {
-    if (spaceId && date && startTime && endTime && !availabilityError) {
-      setAvailabilityChecking(true);
-      // Availability checking is handled by the query hook
-      setTimeout(() => setAvailabilityChecking(false), 1000);
-    }
-  }, [spaceId, date, startTime, endTime, availabilityError]);
+  // Handle time slot validation changes
+  const handleTimeSlotValidation = (isValid: boolean, error?: string, warnings?: string[]) => {
+    setTimeSlotValid(isValid);
+    setTimeSlotError(error || '');
+    setTimeSlotWarnings(warnings || []);
+  };
 
   // Handle contact selection
   const handleContactSelect = (contact: any) => {
@@ -169,9 +134,9 @@ export function BookingForm({
   // Handle form submission
   const onSubmit = async (data: BookingFormData) => {
     try {
-      // Validate availability one more time before submission
-      if (!availabilityData?.isAvailable) {
-        setAvailabilityError('Selected time slot is not available');
+      // Validate time slot selection before submission
+      if (!timeSlotValid || !data.startTime || !data.endTime) {
+        setTimeSlotError('Please select a valid time slot');
         return;
       }
 
@@ -205,6 +170,9 @@ export function BookingForm({
       reset();
       setSelectedContact(null);
       setContactSearch('');
+      setTimeSlotValid(false);
+      setTimeSlotError('');
+      setTimeSlotWarnings([]);
       onSuccess();
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -452,42 +420,16 @@ export function BookingForm({
                     )}
                   </div>
 
-                  {/* Time Selection */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Start Time *</label>
-                      <select
-                        {...register('startTime', { required: 'Start time is required' })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      >
-                        {timeSlots.map((time) => (
-                          <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.startTime && (
-                        <p className="mt-1 text-sm text-red-600">{errors.startTime.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">End Time *</label>
-                      <select
-                        {...register('endTime', { required: 'End time is required' })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      >
-                        {timeSlots.map((time) => (
-                          <option key={time} value={time}>
-                            {format(new Date(`2024-01-01T${time}:00`), 'h:mm a')}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.endTime && (
-                        <p className="mt-1 text-sm text-red-600">{errors.endTime.message}</p>
-                      )}
-                    </div>
-                  </div>
+                  {/* Time Selection with Slot Enforcement */}
+                  <TimeSlotSelector
+                    spaceId={spaceId}
+                    date={date}
+                    duration={60} // Default 1 hour duration
+                    selectedStartTime={startTime}
+                    selectedEndTime={endTime}
+                    onTimeSlotSelect={handleTimeSlotSelect}
+                    onValidationChange={handleTimeSlotValidation}
+                  />
 
                   {/* Duration Display */}
                   {startTime && endTime && (
@@ -501,30 +443,25 @@ export function BookingForm({
                     </div>
                   )}
 
-                  {/* Availability Status */}
-                  {spaceId && date && startTime && endTime && (
-                    <div className="p-4 border rounded-lg">
-                      {availabilityLoading || availabilityChecking ? (
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                          <span className="text-sm">Checking availability...</span>
-                        </div>
-                      ) : availabilityError ? (
-                        <div className="flex items-center space-x-2 text-red-600">
+
+                  {/* Time Slot Validation Status */}
+                  {timeSlotError && (
+                    <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                      <div className="flex items-center space-x-2 text-red-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm">{timeSlotError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {timeSlotWarnings.length > 0 && (
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      {timeSlotWarnings.map((warning, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-yellow-600">
                           <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm">{availabilityError}</span>
+                          <span className="text-sm">{warning}</span>
                         </div>
-                      ) : availabilityData?.isAvailable ? (
-                        <div className="flex items-center space-x-2 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="text-sm">Time slot is available</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2 text-red-600">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm">Time slot is not available</span>
-                        </div>
-                      )}
+                      ))}
                     </div>
                   )}
 
@@ -565,7 +502,7 @@ export function BookingForm({
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isSubmitting || !availabilityData?.isAvailable || !!availabilityError}
+                disabled={isSubmitting || !timeSlotValid || !!timeSlotError}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creating...' : 'Create Booking'}
