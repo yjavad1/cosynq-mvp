@@ -449,6 +449,27 @@ class ApiService {
     console.log('Generating spaces for product type:', productTypeId, 'count:', count);
     return this.api.post(`/product-types/${productTypeId}/generate-spaces`, { count });
   }
+
+  // WhatsApp Management Methods
+  async getWhatsAppStatus(): Promise<AxiosResponse> {
+    return this.api.get('/whatsapp/status');
+  }
+
+  async sendWhatsAppMessage(data: {
+    toNumber: string;
+    messageBody: string;
+    contactId?: string;
+  }): Promise<AxiosResponse> {
+    return this.api.post('/whatsapp/send', data);
+  }
+
+  async getWhatsAppConversations(): Promise<AxiosResponse> {
+    return this.api.get('/whatsapp/conversations');
+  }
+
+  async getWhatsAppConversation(phoneNumber: string): Promise<AxiosResponse> {
+    return this.api.get(`/whatsapp/conversation/${phoneNumber}`);
+  }
 }
 
 export const apiService = new ApiService();

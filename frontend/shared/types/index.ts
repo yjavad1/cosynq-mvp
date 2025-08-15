@@ -666,3 +666,65 @@ export interface ContactStats {
   contactsByPriority: Array<{ _id: string; count: number }>;
   recentInteractions: ContactInteraction[];
 }
+
+// WhatsApp Types
+export type MessageDirection = 'inbound' | 'outbound';
+export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed';
+
+export interface WhatsAppMessage {
+  _id: string;
+  organizationId: string;
+  messageId: string;
+  direction: MessageDirection;
+  status: MessageStatus;
+  fromNumber: string;
+  toNumber: string;
+  contactId?: string;
+  messageBody: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  conversationId: string;
+  isAutoReply?: boolean;
+  sentAt: Date;
+  twilioData?: {
+    accountSid: string;
+    numSegments: number;
+    price?: string;
+    priceUnit?: string;
+    apiVersion?: string;
+  };
+}
+
+export interface WhatsAppConversation {
+  _id: string;
+  latestMessage: WhatsAppMessage;
+  messageCount: number;
+  lastActivity: string;
+}
+
+export interface WhatsAppStatus {
+  enabled: boolean;
+  twilioNumber?: string;
+  stats: {
+    totalMessages: number;
+    totalConversations: number;
+  };
+}
+
+export interface SendWhatsAppMessageRequest {
+  toNumber: string;
+  messageBody: string;
+  contactId?: string;
+}
+
+export interface WhatsAppConversationsResponse {
+  conversations: WhatsAppConversation[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalConversations: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
