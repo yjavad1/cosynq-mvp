@@ -120,3 +120,23 @@ export function useDeleteSpace() {
     },
   });
 }
+
+export function useCleanupOrphanedSpaces() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => {
+      // This would be implemented as a backend API endpoint
+      console.log('Cleanup orphaned spaces - backend implementation needed');
+      return Promise.resolve({ data: { data: { cleaned: 0 } } });
+    },
+    onSuccess: (response: any) => {
+      console.log('Cleanup completed:', response.data.data);
+      queryClient.invalidateQueries({ queryKey: [SPACES_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SPACE_STATS_QUERY_KEY] });
+    },
+    onError: (error: any) => {
+      console.error('Cleanup error:', error);
+    },
+  });
+}

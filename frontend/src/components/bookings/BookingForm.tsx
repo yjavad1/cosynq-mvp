@@ -82,6 +82,42 @@ export function BookingForm({
     limit: 100
   });
 
+  // *** FILTER SPACES BY LOCATION AND ACTIVE STATUS ***
+  const filteredSpaces = useMemo(() => {
+    if (!spacesData?.spaces) return [];
+    
+    return spacesData.spaces.filter(space => {
+      // Only show active spaces
+      if (!space.isActive) return false;
+      
+      // If locationId is provided, filter by location
+      if (_locationId && space.locationId !== _locationId) return false;
+      
+      return true;
+    });
+  }, [spacesData?.spaces, _locationId]);
+
+  // *** DEBUGGING: Log space data for consistency analysis ***
+  console.log("=== BOOKING FORM SPACE DEBUG ===");
+  console.log("Location ID Filter:", _locationId);
+  console.log("Raw Spaces Data:", spacesData);
+  console.log("Raw Spaces Count:", spacesData?.spaces?.length || 0);
+  console.log("Filtered Spaces Count:", filteredSpaces.length);
+  console.log("Raw Spaces List:", spacesData?.spaces?.map(s => ({
+    id: s._id,
+    name: s.name,
+    type: s.type,
+    locationId: s.locationId,
+    isActive: s.isActive
+  })));
+  console.log("Filtered Spaces List:", filteredSpaces.map(s => ({
+    id: s._id,
+    name: s.name,
+    type: s.type,
+    locationId: s.locationId,
+    isActive: s.isActive
+  })));
+
   // Mutations
   const createBookingMutation = useCreateBooking();
 
@@ -180,7 +216,7 @@ export function BookingForm({
   };
 
   // Get selected space details
-  const selectedSpace = spacesData?.spaces?.find(space => space._id === spaceId);
+  const selectedSpace = filteredSpaces.find(space => space._id === spaceId);
 
   if (!isOpen) return null;
 
@@ -355,9 +391,15 @@ export function BookingForm({
                     <select
                       {...register('spaceId', { required: 'Space selection is required' })}
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      disabled={filteredSpaces.length === 0}
                     >
-                      <option value="">Select a space...</option>
-                      {spacesData?.spaces?.map((space) => (
+                      <option value="">
+                        {filteredSpaces.length === 0 
+                          ? "No spaces available for this location" 
+                          : "Select a space..."
+                        }
+                      </option>
+                      {filteredSpaces.map((space) => (
                         <option key={space._id} value={space._id}>
                           {space.name} - {space.type} (Capacity: {space.capacity})
                         </option>
@@ -365,6 +407,18 @@ export function BookingForm({
                     </select>
                     {errors.spaceId && (
                       <p className="mt-1 text-sm text-red-600">{errors.spaceId.message}</p>
+                    )}
+                    
+                    {/* Warning when no spaces are available */}
+                    {filteredSpaces.length === 0 && (
+                      <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center space-x-2 text-yellow-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm">
+                            No active spaces found for this location. Please add spaces in Space Configuration.
+                          </span>
+                        </div>
+                      </div>
                     )}
                     
                     {selectedSpace && (

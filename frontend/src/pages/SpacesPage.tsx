@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useSpaces, useDeleteSpace } from '../hooks/useSpaces';
+import { useState, useMemo } from 'react';
+import { useSpaces, useDeleteSpace, useCleanupOrphanedSpaces } from '../hooks/useSpaces';
 import { Space } from '@shared/types';
 import { SpaceCard } from '../components/spaces/SpaceCard';
 import { SpaceForm } from '../components/spaces/SpaceForm';
-import { Plus, Search, Filter, Grid, List } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, Trash2, AlertTriangle } from 'lucide-react';
 
 export function SpacesPage() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,7 +25,42 @@ export function SpacesPage() {
     isActive: isActiveFilter,
   });
 
+  // *** DEBUGGING: Log space data for consistency analysis ***
+  console.log("=== SPACES PAGE DEBUG ===");
+  console.log("Spaces Data:", data);
+  console.log("Spaces Count:", data?.spaces?.length || 0);
+  console.log("Spaces List:", data?.spaces?.map(s => ({
+    id: s._id,
+    name: s.name,
+    type: s.type,
+    locationId: s.locationId,
+    isActive: s.isActive
+  })));
+  console.log("Current Filters:", {
+    search,
+    typeFilter,
+    statusFilter,
+    isActiveFilter
+  });
+
   const deleteSpaceMutation = useDeleteSpace();
+  const cleanupOrphanedSpaces = useCleanupOrphanedSpaces();
+
+  // Data consistency analysis
+  const dataConsistencyAnalysis = useMemo(() => {
+    if (!data?.spaces) return null;
+    
+    const analysis = {
+      totalSpaces: data.spaces.length,
+      activeSpaces: data.spaces.filter(s => s.isActive).length,
+      inactiveSpaces: data.spaces.filter(s => !s.isActive).length,
+      spacesWithoutLocation: data.spaces.filter(s => !s.locationId).length,
+      uniqueLocations: new Set(data.spaces.map(s => s.locationId).filter(Boolean)).size,
+      spaceTypes: [...new Set(data.spaces.map(s => s.type))],
+    };
+    
+    return analysis;
+  }, [data?.spaces]);
 
   const handleCreateSpace = () => {
     setSelectedSpace(undefined);
@@ -105,14 +140,79 @@ export function SpacesPage() {
               Manage your workspace inventory and availability
             </p>
           </div>
-          <button
-            onClick={handleCreateSpace}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Space
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => cleanupOrphanedSpaces.mutate()}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+              disabled={cleanupOrphanedSpaces.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {cleanupOrphanedSpaces.isPending ? 'Cleaning...' : 'Cleanup Data'}
+            </button>
+            <button
+              onClick={handleCreateSpace}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Space
+            </button>
+          </div>
         </div>
+
+        {/* Data Consistency Panel */}
+        {dataConsistencyAnalysis && (
+          <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                <AlertTriangle className="h-5 w-5 mr-2 text-orange-500" />
+                Data Consistency Analysis
+              </h2>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{dataConsistencyAnalysis.totalSpaces}</div>
+                <div className="text-sm text-gray-600">Total Spaces</div>
+              </div>
+              
+              <div className="bg-green-50 p-3 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{dataConsistencyAnalysis.activeSpaces}</div>
+                <div className="text-sm text-gray-600">Active</div>
+              </div>
+              
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-2xl font-bold text-gray-600">{dataConsistencyAnalysis.inactiveSpaces}</div>
+                <div className="text-sm text-gray-600">Inactive</div>
+              </div>
+              
+              <div className={`p-3 rounded-lg ${dataConsistencyAnalysis.spacesWithoutLocation > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                <div className={`text-2xl font-bold ${dataConsistencyAnalysis.spacesWithoutLocation > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {dataConsistencyAnalysis.spacesWithoutLocation}
+                </div>
+                <div className="text-sm text-gray-600">Orphaned</div>
+              </div>
+              
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{dataConsistencyAnalysis.uniqueLocations}</div>
+                <div className="text-sm text-gray-600">Locations</div>
+              </div>
+              
+              <div className="bg-indigo-50 p-3 rounded-lg">
+                <div className="text-2xl font-bold text-indigo-600">{dataConsistencyAnalysis.spaceTypes.length}</div>
+                <div className="text-sm text-gray-600">Types</div>
+              </div>
+            </div>
+            
+            {dataConsistencyAnalysis.spacesWithoutLocation > 0 && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-sm text-red-700">
+                  <strong>Warning:</strong> {dataConsistencyAnalysis.spacesWithoutLocation} spaces without location assignments detected. 
+                  These will not appear in booking forms. Consider cleaning up this data.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
