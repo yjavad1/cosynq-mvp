@@ -12,6 +12,28 @@ const router = express.Router();
 
 console.log("🔧 Registering WhatsApp routes...");
 
+// Add this BEFORE the webhook route for testing
+router.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "WhatsApp routes are working!",
+    timestamp: new Date().toISOString(),
+    environment: {
+      whatsapp_enabled: process.env.ENABLE_WHATSAPP,
+      has_twilio_sid: !!process.env.TWILIO_ACCOUNT_SID,
+      has_twilio_token: !!process.env.TWILIO_AUTH_TOKEN,
+    },
+  });
+});
+
+// Add this BEFORE the webhook route for debugging webhook specifically
+router.post("/test-webhook", (req, res) => {
+  console.log("=== TEST WEBHOOK CALLED ===");
+  console.log("Body:", req.body);
+  console.log("Headers:", req.headers);
+  res.status(200).send("Test webhook OK");
+});
+
 // Public webhook endpoint (no authentication required)
 router.post("/webhook", handleWebhook);
 console.log("✅ POST /webhook route registered (public)");
