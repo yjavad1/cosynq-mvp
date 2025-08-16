@@ -6,15 +6,34 @@ import locationRoutes from "./locations";
 import productTypeRoutes from "./productTypes";
 import bookingRoutes from "./bookings";
 import onboardingRoutes from "./onboarding";
-import whatsappRoutes from "./whatsapp";
 
 const router = express.Router();
 
 // Debug logging for route registration
 console.log("🔧 Registering API routes...");
 
-router.use("/whatsapp", whatsappRoutes);
-console.log("✅ WhatsApp routes registered at /api/whatsapp");
+// Safely import WhatsApp routes with error handling
+let whatsappRoutes: any = null;
+try {
+  console.log("📱 Attempting to import WhatsApp routes...");
+  whatsappRoutes = require("./whatsapp").default;
+  router.use("/whatsapp", whatsappRoutes);
+  console.log("✅ WhatsApp routes registered at /api/whatsapp");
+} catch (error) {
+  console.error("❌ Failed to import WhatsApp routes:", error);
+  console.error("❌ WhatsApp functionality will be disabled");
+  
+  // Create a fallback route that indicates WhatsApp is disabled
+  router.use("/whatsapp", (_req, res) => {
+    res.status(503).json({
+      success: false,
+      message: "WhatsApp service is currently unavailable",
+      error: "Import failure - check server logs",
+      timestamp: new Date().toISOString()
+    });
+  });
+  console.log("⚠️ WhatsApp fallback route registered (service disabled)");
+}
 
 router.use("/auth", authRoutes);
 console.log("✅ Auth routes registered at /api/auth");

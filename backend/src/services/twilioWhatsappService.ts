@@ -1,4 +1,4 @@
-const twilio = require("twilio");
+import { Twilio } from "twilio";
 import { WhatsAppMessage, IWhatsAppMessage } from "../models/WhatsAppMessage";
 import { Contact } from "../models/Contact";
 import mongoose from "mongoose";
@@ -22,7 +22,7 @@ export interface TwilioWebhookData {
 }
 
 export class TwilioWhatsAppService {
-  private twilioClient: any;
+  private twilioClient!: Twilio;
   private fromNumber!: string;
   private isInitialized: boolean = false;
 
@@ -62,7 +62,7 @@ export class TwilioWhatsAppService {
       );
     }
 
-    this.twilioClient = twilio(
+    this.twilioClient = new Twilio(
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
