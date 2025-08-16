@@ -6,6 +6,7 @@ import twilioWhatsAppService, {
 import { WhatsAppMessage } from "../models/WhatsAppMessage";
 import * as Joi from "joi";
 import mongoose from "mongoose";
+import twilio from "twilio";
 
 // Validation schemas
 const sendMessageSchema = Joi.object({
@@ -123,28 +124,51 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
  * Handle incoming WhatsApp messages via Twilio webhook
  */
 export const handleWebhook = async (req: Request, res: Response) => {
+  // Create TwiML response object
+  const twiml = new twilio.twiml.MessagingResponse();
+
   try {
     if (!isWhatsAppEnabled()) {
       console.log("⚠️ WhatsApp webhook received but service is disabled");
-      return res.status(200).send("OK"); // Always respond OK to webhooks
+      // Return empty TwiML response when service is disabled
+      res.writeHead(200, {'Content-Type': 'text/xml'});
+      return res.end(twiml.toString());
     }
 
     console.log("=== INCOMING WHATSAPP WEBHOOK ===");
     console.log("Webhook body:", JSON.stringify(req.body, null, 2));
     console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Content-Type:", req.get('Content-Type'));
+    console.log("Method:", req.method);
+    console.log("URL:", req.url);
+    console.log("Body type:", typeof req.body);
+    console.log("Body keys:", Object.keys(req.body || {}));
 
     const { error, value } = webhookSchema.validate(req.body);
     if (error) {
       console.error("Webhook validation error:", error.details);
-      return res.status(200).send("OK"); // Always respond OK even if validation fails
+      // Return empty TwiML response for validation errors
+      res.writeHead(200, {'Content-Type': 'text/xml'});
+      return res.end(twiml.toString());
     }
 
     // TODO: In production, you should verify the webhook signature
     // to ensure it's actually from Twilio
 
-    // For now, we'll use a default organization ID
+    // Get organization ID from environment or create a default one
     // In a multi-tenant setup, you'd determine this from the webhook data or route
-    const organizationId = process.env.DEFAULT_ORGANIZATION_ID || "default";
+    let organizationId: string;
+    
+    if (process.env.DEFAULT_ORGANIZATION_ID) {
+      organizationId = process.env.DEFAULT_ORGANIZATION_ID;
+    } else {
+      // Create a default ObjectId if none is configured
+      // This should be replaced with proper organization mapping in production
+      organizationId = "507f1f77bcf86cd799439011"; // Default MongoDB ObjectId
+      console.log("⚠️ Using default organizationId. Set DEFAULT_ORGANIZATION_ID in environment.");
+    }
+
+    console.log("📋 Processing webhook for organizationId:", organizationId);
 
     try {
       const message = await twilioWhatsAppService.processIncomingMessage(
@@ -153,27 +177,39 @@ export const handleWebhook = async (req: Request, res: Response) => {
       );
 
       console.log("✅ Incoming message processed successfully");
+      console.log("💾 Message saved with ID:", message._id);
 
       // Send auto-response if enabled
       if (process.env.ENABLE_AUTO_RESPONSES === "true") {
         const fromNumber = value.From.replace("whatsapp:", "");
-        await twilioWhatsAppService.sendAutoResponse(
+        const autoResponseMessage = await twilioWhatsAppService.sendAutoResponse(
           organizationId,
           fromNumber,
           value.Body,
           message.contactId?.toString()
         );
+
+        // If an auto-response was generated, add it to TwiML
+        if (autoResponseMessage) {
+          console.log("🤖 Adding auto-response to TwiML:", autoResponseMessage.messageBody);
+          twiml.message(autoResponseMessage.messageBody);
+        }
       }
     } catch (processError) {
       console.error("❌ Error processing webhook:", processError);
-      // Don't fail the webhook - always respond OK to Twilio
+      // Don't fail the webhook - continue with empty TwiML response
     }
 
-    // Always respond with 200 OK to Twilio webhooks
-    res.status(200).send("OK");
+    // Always respond with proper TwiML XML
+    console.log("📤 Sending TwiML response:", twiml.toString());
+    res.writeHead(200, {'Content-Type': 'text/xml'});
+    res.end(twiml.toString());
+
   } catch (error: any) {
     console.error("❌ Webhook handler error:", error);
-    res.status(200).send("OK"); // Always respond OK to prevent webhook retries
+    // Return empty TwiML response even on errors
+    res.writeHead(200, {'Content-Type': 'text/xml'});
+    res.end(twiml.toString());
   }
 };
 

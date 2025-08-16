@@ -179,6 +179,13 @@ export class TwilioWhatsAppService {
         throw new Error("Invalid webhook data: missing phone numbers");
       }
 
+      // Validate organizationId format
+      if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+        throw new Error(`Invalid organizationId format: ${organizationId}. Must be a valid MongoDB ObjectId.`);
+      }
+
+      console.log("🔍 Looking for contact with phone:", fromNumber, "in org:", organizationId);
+
       // Try to find existing contact by phone number
       const contact = await Contact.findOne({
         organizationId: new mongoose.Types.ObjectId(organizationId),
@@ -216,12 +223,38 @@ export class TwilioWhatsAppService {
         sentAt: new Date(),
       });
 
+      console.log("💾 Attempting to save incoming message with data:", {
+        organizationId,
+        messageId: webhookData.MessageSid,
+        direction: "inbound",
+        fromNumber,
+        toNumber,
+        messageBody: webhookData.Body
+      });
+
       try {
-        await whatsAppMessage.save();
-        console.log("✅ Incoming message saved to database");
-      } catch (saveError) {
+        const savedMessage = await whatsAppMessage.save();
+        console.log("✅ Incoming message saved to database with ID:", savedMessage._id);
+        console.log("📊 Database document:", {
+          _id: savedMessage._id,
+          organizationId: savedMessage.organizationId,
+          messageId: savedMessage.messageId,
+          direction: savedMessage.direction
+        });
+      } catch (saveError: any) {
         console.error("❌ Failed to save incoming message to database:", saveError);
-        throw new Error("Failed to save incoming message to database");
+        console.error("📋 Error details:", {
+          message: saveError.message,
+          code: saveError.code,
+          name: saveError.name
+        });
+        console.error("🔍 Attempted to save:", {
+          organizationId,
+          messageId: webhookData.MessageSid,
+          fromNumber,
+          toNumber
+        });
+        throw new Error(`Failed to save incoming message to database: ${saveError.message}`);
       }
 
       // Add interaction to contact if found

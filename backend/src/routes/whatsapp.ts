@@ -31,7 +31,27 @@ router.post("/test-webhook", (req, res) => {
   console.log("=== TEST WEBHOOK CALLED ===");
   console.log("Body:", req.body);
   console.log("Headers:", req.headers);
-  res.status(200).send("Test webhook OK");
+  console.log("Content-Type:", req.get('Content-Type'));
+  console.log("Body type:", typeof req.body);
+  console.log("Body keys:", Object.keys(req.body || {}));
+  
+  // Test organization ID validation
+  const testOrgId = process.env.DEFAULT_ORGANIZATION_ID || "507f1f77bcf86cd799439011";
+  console.log("Test organization ID:", testOrgId);
+  console.log("Is valid ObjectId:", require('mongoose').Types.ObjectId.isValid(testOrgId));
+  
+  // Return proper TwiML for testing
+  const twilio = require('twilio');
+  const twiml = new twilio.twiml.MessagingResponse();
+  
+  // Add a test message to TwiML if Body is provided
+  if (req.body && req.body.Body) {
+    twiml.message(`Test auto-response: You said "${req.body.Body}"`);
+  }
+  
+  console.log("📤 Test TwiML response:", twiml.toString());
+  res.writeHead(200, {'Content-Type': 'text/xml'});
+  res.end(twiml.toString());
 });
 
 // Public webhook endpoint (no authentication required)
