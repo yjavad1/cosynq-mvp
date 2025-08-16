@@ -8,6 +8,29 @@ import * as Joi from "joi";
 import mongoose from "mongoose";
 import twilio from "twilio";
 
+// Simple rate limiting for webhooks (Railway protection)
+const webhookRateLimit = new Map<string, { count: number; resetTime: number }>();
+
+const checkRateLimit = (ip: string): boolean => {
+  const now = Date.now();
+  const windowMs = 60000; // 1 minute window
+  const maxRequests = 100; // Max 100 requests per minute per IP
+  
+  const record = webhookRateLimit.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    webhookRateLimit.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= maxRequests) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+};
+
 // Validation schemas
 const sendMessageSchema = Joi.object({
   toNumber: Joi.string()
@@ -26,11 +49,11 @@ const webhookSchema = Joi.object({
   AccountSid: Joi.string().required(),
   From: Joi.string().required(),
   To: Joi.string().required(),
-  Body: Joi.string().required(),
+  Body: Joi.string().allow("").required(),
   NumSegments: Joi.string().optional(),
   MediaUrl0: Joi.string().optional(),
   MediaContentType0: Joi.string().optional(),
-});
+}).unknown(true); // Allow all other fields without validation
 
 // Helper function to ensure user is authenticated
 const ensureAuthenticated = (req: AuthRequest, res: Response) => {
@@ -47,6 +70,24 @@ const ensureAuthenticated = (req: AuthRequest, res: Response) => {
 // Check if WhatsApp feature is enabled
 const isWhatsAppEnabled = () => {
   return process.env.ENABLE_WHATSAPP === "true";
+};
+
+// Validate required environment variables for Railway deployment
+const validateEnvironment = () => {
+  const requiredVars = [];
+  
+  if (process.env.ENABLE_WHATSAPP === "true") {
+    if (!process.env.TWILIO_ACCOUNT_SID) requiredVars.push("TWILIO_ACCOUNT_SID");
+    if (!process.env.TWILIO_AUTH_TOKEN) requiredVars.push("TWILIO_AUTH_TOKEN");
+    if (!process.env.TWILIO_WHATSAPP_NUMBER) requiredVars.push("TWILIO_WHATSAPP_NUMBER");
+  }
+  
+  if (requiredVars.length > 0) {
+    console.warn("⚠️ Missing environment variables for WhatsApp:", requiredVars.join(", "));
+    return false;
+  }
+  
+  return true;
 };
 
 /**
@@ -131,14 +172,29 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (!isWhatsAppEnabled()) {
       console.log("⚠️ WhatsApp webhook received but service is disabled");
       // Return empty TwiML response when service is disabled
-      res.writeHead(200, {'Content-Type': 'text/xml'});
+      res.writeHead(200, { "Content-Type": "text/xml" });
+      return res.end(twiml.toString());
+    }
+
+    if (!validateEnvironment()) {
+      console.error("❌ WhatsApp environment validation failed");
+      // Return empty TwiML response when environment is invalid
+      res.writeHead(200, { "Content-Type": "text/xml" });
+      return res.end(twiml.toString());
+    }
+
+    // Rate limiting protection for Railway
+    const clientIP = req.ip || req.socket.remoteAddress || "unknown";
+    if (!checkRateLimit(clientIP)) {
+      console.warn("⚠️ Rate limit exceeded for IP:", clientIP);
+      res.writeHead(429, { "Content-Type": "text/xml" });
       return res.end(twiml.toString());
     }
 
     console.log("=== INCOMING WHATSAPP WEBHOOK ===");
     console.log("Webhook body:", JSON.stringify(req.body, null, 2));
     console.log("Headers:", JSON.stringify(req.headers, null, 2));
-    console.log("Content-Type:", req.get('Content-Type'));
+    console.log("Content-Type:", req.get("Content-Type"));
     console.log("Method:", req.method);
     console.log("URL:", req.url);
     console.log("Body type:", typeof req.body);
@@ -148,7 +204,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
     if (error) {
       console.error("Webhook validation error:", error.details);
       // Return empty TwiML response for validation errors
-      res.writeHead(200, {'Content-Type': 'text/xml'});
+      res.writeHead(200, { "Content-Type": "text/xml" });
       return res.end(twiml.toString());
     }
 
@@ -158,14 +214,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
     // Get organization ID from environment or create a default one
     // In a multi-tenant setup, you'd determine this from the webhook data or route
     let organizationId: string;
-    
+
     if (process.env.DEFAULT_ORGANIZATION_ID) {
       organizationId = process.env.DEFAULT_ORGANIZATION_ID;
     } else {
       // Create a default ObjectId if none is configured
       // This should be replaced with proper organization mapping in production
       organizationId = "507f1f77bcf86cd799439011"; // Default MongoDB ObjectId
-      console.log("⚠️ Using default organizationId. Set DEFAULT_ORGANIZATION_ID in environment.");
+      console.log(
+        "⚠️ Using default organizationId. Set DEFAULT_ORGANIZATION_ID in environment."
+      );
     }
 
     console.log("📋 Processing webhook for organizationId:", organizationId);
@@ -181,18 +239,31 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
       // Send auto-response if enabled
       if (process.env.ENABLE_AUTO_RESPONSES === "true") {
-        const fromNumber = value.From.replace("whatsapp:", "");
-        const autoResponseMessage = await twilioWhatsAppService.sendAutoResponse(
-          organizationId,
-          fromNumber,
-          value.Body,
-          message.contactId?.toString()
-        );
+        try {
+          const fromNumber = value.From?.replace("whatsapp:", "") || "";
+          const messageBody = value.Body || "";
+          
+          if (fromNumber) {
+            const autoResponseMessage =
+              await twilioWhatsAppService.sendAutoResponse(
+                organizationId,
+                fromNumber,
+                messageBody,
+                message.contactId?.toString()
+              );
 
-        // If an auto-response was generated, add it to TwiML
-        if (autoResponseMessage) {
-          console.log("🤖 Adding auto-response to TwiML:", autoResponseMessage.messageBody);
-          twiml.message(autoResponseMessage.messageBody);
+            // If an auto-response was generated, add it to TwiML
+            if (autoResponseMessage && autoResponseMessage.messageBody) {
+              console.log(
+                "🤖 Adding auto-response to TwiML:",
+                autoResponseMessage.messageBody
+              );
+              twiml.message(autoResponseMessage.messageBody);
+            }
+          }
+        } catch (autoResponseError) {
+          console.error("❌ Error sending auto-response:", autoResponseError);
+          // Don't fail the webhook for auto-response errors
         }
       }
     } catch (processError) {
@@ -202,13 +273,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
     // Always respond with proper TwiML XML
     console.log("📤 Sending TwiML response:", twiml.toString());
-    res.writeHead(200, {'Content-Type': 'text/xml'});
+    res.writeHead(200, { "Content-Type": "text/xml" });
     res.end(twiml.toString());
-
   } catch (error: any) {
     console.error("❌ Webhook handler error:", error);
     // Return empty TwiML response even on errors
-    res.writeHead(200, {'Content-Type': 'text/xml'});
+    res.writeHead(200, { "Content-Type": "text/xml" });
     res.end(twiml.toString());
   }
 };
