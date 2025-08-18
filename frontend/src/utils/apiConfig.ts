@@ -13,8 +13,7 @@ function isProduction(): boolean {
     import.meta.env.PROD === true ||
     import.meta.env.MODE === 'production' ||
     window.location.hostname.includes('railway.app') ||
-    window.location.hostname.includes('up.railway.app') ||
-    process.env.NODE_ENV === 'production'
+    window.location.hostname.includes('up.railway.app')
   );
 }
 
@@ -96,9 +95,9 @@ export function logApiConfig(): void {
       href: window.location.href,
       protocol: window.location.protocol
     },
-    // Node environment (if available)
+    // Node environment (not available in browser)
     node: {
-      nodeEnv: typeof process !== 'undefined' ? process.env?.NODE_ENV : 'undefined'
+      nodeEnv: 'browser-environment'
     },
     // Detection results
     detection: {
