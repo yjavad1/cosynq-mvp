@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
+import { getApiUrl } from '../utils/apiConfig';
 
 export interface TimeSlot {
   startTime: string; // ISO string
@@ -54,9 +55,9 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
       }
 
       try {
-        // Make the API call using the public method
-        const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
-        const response = await fetch(`${apiUrl}/spaces/${spaceId}/availability?date=${date}&duration=${duration}`, {
+        // Make the API call using the bulletproof API configuration
+        const fullUrl = getApiUrl(`spaces/${spaceId}/availability?date=${date}&duration=${duration}`);
+        const response = await fetch(fullUrl, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('cosynq_token')}`,
             'Content-Type': 'application/json'

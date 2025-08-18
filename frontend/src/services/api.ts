@@ -26,9 +26,13 @@ import {
   CreateProductTypeData,
   ProductTypesResponse
 } from '@shared/types';
-import { getApiBaseUrl } from '../utils/apiConfig';
+import { getApiBaseUrl, logApiConfig } from '../utils/apiConfig';
+
+// Force logging on import
+logApiConfig();
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('🔧 ApiService using base URL:', API_BASE_URL);
 
 class ApiService {
   private api: AxiosInstance;
@@ -48,14 +52,49 @@ class ApiService {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Log all requests for debugging
+        console.log(`🌐 API REQUEST: ${config.method?.toUpperCase()} ${config.url}`, {
+          baseURL: config.baseURL,
+          url: config.url,
+          fullUrl: `${config.baseURL}${config.url}`,
+          headers: config.headers,
+          data: config.data
+        });
+        
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error('🚨 API REQUEST ERROR:', error);
+        return Promise.reject(error);
+      }
     );
 
     this.api.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Log successful responses
+        console.log(`✅ API RESPONSE: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          data: response.data
+        });
+        return response;
+      },
       async (error) => {
+        // Log error responses with detailed information
+        console.error(`❌ API ERROR: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message,
+          code: error.code,
+          config: {
+            baseURL: error.config?.baseURL,
+            url: error.config?.url,
+            fullUrl: error.config?.baseURL + error.config?.url
+          }
+        });
         const originalRequest = error.config;
         
         // Handle onboarding required responses
