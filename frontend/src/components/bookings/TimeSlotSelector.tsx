@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, AlertCircle, CheckCircle, RefreshCw, Calendar } from 'lucide-react';
 import { useTimeSlots, useTimeSlotSuggestions } from '../../hooks/useTimeSlots';
 
@@ -48,35 +48,20 @@ export function TimeSlotSelector({
     selectedStartTime
   );
 
-  // Use refs to track previous validation to avoid unnecessary calls
-  const prevValidationRef = useRef<{startTime?: string, endTime?: string, isValid?: boolean}>({});
-  
   // Update selected slot when props change
   useEffect(() => {
     if (selectedStartTime && selectedEndTime) {
       const value = `${selectedStartTime}-${selectedEndTime}`;
       setSelectedSlotValue(value);
       
-      // Only validate and call onValidationChange if the selection actually changed
-      const prev = prevValidationRef.current;
-      if (prev.startTime !== selectedStartTime || prev.endTime !== selectedEndTime) {
-        const validation = validateTimeSlot(selectedStartTime, selectedEndTime);
-        onValidationChange(validation.isValid, validation.error, validation.warnings);
-        prevValidationRef.current = {
-          startTime: selectedStartTime,
-          endTime: selectedEndTime,
-          isValid: validation.isValid
-        };
-      }
+      // Validate the selection
+      const validation = validateTimeSlot(selectedStartTime, selectedEndTime);
+      onValidationChange(validation.isValid, validation.error, validation.warnings);
     } else {
       setSelectedSlotValue('');
-      // Only call onValidationChange if we previously had a valid selection
-      if (prevValidationRef.current.isValid !== false) {
-        onValidationChange(false, 'Please select a time slot');
-        prevValidationRef.current = { isValid: false };
-      }
+      onValidationChange(false, 'Please select a time slot');
     }
-  }, [selectedStartTime, selectedEndTime]); // Removed validateTimeSlot and onValidationChange from deps
+  }, [selectedStartTime, selectedEndTime, validateTimeSlot, onValidationChange]);
 
   // Handle slot selection
   const handleSlotSelect = (slotValue: string) => {
@@ -199,7 +184,7 @@ export function TimeSlotSelector({
         
         {selectedSlotValue && (
           <div className="mt-2">
-            {prevValidationRef.current.isValid ? (
+            {validateTimeSlot(selectedStartTime || '', selectedEndTime || '').isValid ? (
               <div className="flex items-center space-x-2 text-green-600">
                 <CheckCircle className="w-4 h-4" />
                 <span className="text-sm">Time slot confirmed</span>

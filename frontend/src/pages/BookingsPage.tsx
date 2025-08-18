@@ -49,7 +49,7 @@ export default function BookingsPage() {
   
   // Filter cancelled bookings
   const cancelledBookings = useMemo(() => {
-    return bookingsData?.bookings?.filter((booking: BookingData) => booking.status === 'Cancelled') || [];
+    return bookingsData?.bookings?.filter(booking => booking.status === 'Cancelled') || [];
   }, [bookingsData]);
   
   // Handle booking event clicks
@@ -328,7 +328,7 @@ export default function BookingsPage() {
                       Revenue
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      ${bookingsData?.bookings?.reduce((sum: number, b: BookingData) => sum + b.totalAmount, 0)?.toLocaleString() || '0'}
+                      ${bookingsData?.bookings?.reduce((sum, b) => sum + b.totalAmount, 0)?.toLocaleString() || '0'}
                     </dd>
                   </dl>
                 </div>
@@ -401,7 +401,7 @@ export default function BookingsPage() {
             
             <div className="p-6">
               <div className="space-y-4">
-                {cancelledBookings.map((booking: BookingData) => (
+                {cancelledBookings.map((booking) => (
                   <div
                     key={booking._id}
                     className="border border-gray-200 rounded-lg p-4 hover:border-red-200 hover:bg-red-50 transition-colors"
@@ -514,7 +514,7 @@ export default function BookingsPage() {
           <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Booking Status Breakdown</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {statsData.bookingsByStatus.map((stat: {status: string, count: number}) => (
+              {statsData.bookingsByStatus.map((stat) => (
                 <div key={stat.status} className="text-center">
                   <div className="text-2xl font-bold text-gray-900">{stat.count}</div>
                   <div className="text-sm text-gray-600">{stat.status}</div>

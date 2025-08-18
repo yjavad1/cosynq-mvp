@@ -264,7 +264,7 @@ export function BookingCalendar({
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Confirmed</p>
               <p className="text-2xl font-bold text-gray-900">
-                {bookingsData?.bookings?.filter((b: BookingData) => b.status === 'Confirmed').length || 0}
+                {bookingsData?.bookings?.filter(b => b.status === 'Confirmed').length || 0}
               </p>
             </div>
           </div>
@@ -278,7 +278,7 @@ export function BookingCalendar({
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Pending</p>
               <p className="text-2xl font-bold text-gray-900">
-                {bookingsData?.bookings?.filter((b: BookingData) => b.status === 'Pending').length || 0}
+                {bookingsData?.bookings?.filter(b => b.status === 'Pending').length || 0}
               </p>
             </div>
           </div>
@@ -292,7 +292,7 @@ export function BookingCalendar({
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Revenue</p>
               <p className="text-2xl font-bold text-gray-900">
-                ${bookingsData?.bookings?.reduce((sum: number, b: BookingData) => sum + b.totalAmount, 0)?.toLocaleString() || '0'}
+                ${bookingsData?.bookings?.reduce((sum, b) => sum + b.totalAmount, 0)?.toLocaleString() || '0'}
               </p>
             </div>
           </div>

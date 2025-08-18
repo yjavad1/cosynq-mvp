@@ -29,7 +29,7 @@ export function SpacesPage() {
   console.log("=== SPACES PAGE DEBUG ===");
   console.log("Spaces Data:", data);
   console.log("Spaces Count:", data?.spaces?.length || 0);
-  console.log("Spaces List:", data?.spaces?.map((s: Space) => ({
+  console.log("Spaces List:", data?.spaces?.map(s => ({
     id: s._id,
     name: s.name,
     type: s.type,
@@ -52,11 +52,11 @@ export function SpacesPage() {
     
     const analysis = {
       totalSpaces: data.spaces.length,
-      activeSpaces: data.spaces.filter((s: Space) => s.isActive).length,
-      inactiveSpaces: data.spaces.filter((s: Space) => !s.isActive).length,
-      spacesWithoutLocation: data.spaces.filter((s: Space) => !s.locationId).length,
-      uniqueLocations: new Set(data.spaces.map((s: Space) => s.locationId).filter(Boolean)).size,
-      spaceTypes: [...new Set(data.spaces.map((s: Space) => s.type))],
+      activeSpaces: data.spaces.filter(s => s.isActive).length,
+      inactiveSpaces: data.spaces.filter(s => !s.isActive).length,
+      spacesWithoutLocation: data.spaces.filter(s => !s.locationId).length,
+      uniqueLocations: new Set(data.spaces.map(s => s.locationId).filter(Boolean)).size,
+      spaceTypes: [...new Set(data.spaces.map(s => s.type))],
     };
     
     return analysis;
@@ -349,7 +349,7 @@ export function SpacesPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Available</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {spaces.filter((s: Space) => s.status === 'Available' && s.isActive).length}
+                    {spaces.filter(s => s.status === 'Available' && s.isActive).length}
                   </p>
                 </div>
               </div>
@@ -365,7 +365,7 @@ export function SpacesPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Occupied</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {spaces.filter((s: Space) => s.status === 'Occupied').length}
+                    {spaces.filter(s => s.status === 'Occupied').length}
                   </p>
                 </div>
               </div>
@@ -399,7 +399,7 @@ export function SpacesPage() {
             'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 
             'space-y-4'
           }>
-            {spaces.map((space: Space) => (
+            {spaces.map((space) => (
               <SpaceCard
                 key={space._id}
                 space={space}

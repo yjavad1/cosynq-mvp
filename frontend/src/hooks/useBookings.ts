@@ -97,7 +97,7 @@ export const useLocationBookingStats = (locationId: string | undefined) => {
     }
 
     // Filter bookings for spaces in this location
-    const locationBookings = bookingsData.bookings.filter((booking: BookingData) => {
+    const locationBookings = bookingsData.bookings.filter(booking => {
       // Check if booking's space belongs to this location
       if (typeof booking.spaceId === 'object' && (booking.spaceId as any)?.locationId) {
         return (booking.spaceId as any).locationId === locationId;
@@ -123,55 +123,55 @@ export const useLocationBookingStats = (locationId: string | undefined) => {
     // Calculate various metrics
     const totalBookings = locationBookings.length;
     
-    const todayBookings = locationBookings.filter((booking: BookingData) => {
+    const todayBookings = locationBookings.filter(booking => {
       const bookingDate = new Date(booking.startTime);
       return bookingDate >= today && bookingDate < tomorrow;
     }).length;
     
-    const thisWeekBookings = locationBookings.filter((booking: BookingData) => {
+    const thisWeekBookings = locationBookings.filter(booking => {
       const bookingDate = new Date(booking.startTime);
       return bookingDate >= thisWeekStart;
     }).length;
     
-    const thisMonthBookings = locationBookings.filter((booking: BookingData) => {
+    const thisMonthBookings = locationBookings.filter(booking => {
       const bookingDate = new Date(booking.startTime);
       return bookingDate >= thisMonthStart && bookingDate < nextMonthStart;
     }).length;
 
     // Revenue calculations
-    const totalRevenue = locationBookings.reduce((sum: number, booking: BookingData) => sum + booking.totalAmount, 0);
+    const totalRevenue = locationBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
     
     const todayRevenue = locationBookings
-      .filter((booking: BookingData) => {
+      .filter(booking => {
         const bookingDate = new Date(booking.startTime);
         return bookingDate >= today && bookingDate < tomorrow;
       })
-      .reduce((sum: number, booking: BookingData) => sum + booking.totalAmount, 0);
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
     
     const thisWeekRevenue = locationBookings
-      .filter((booking: BookingData) => {
+      .filter(booking => {
         const bookingDate = new Date(booking.startTime);
         return bookingDate >= thisWeekStart;
       })
-      .reduce((sum: number, booking: BookingData) => sum + booking.totalAmount, 0);
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
     
     const thisMonthRevenue = locationBookings
-      .filter((booking: BookingData) => {
+      .filter(booking => {
         const bookingDate = new Date(booking.startTime);
         return bookingDate >= thisMonthStart && bookingDate < nextMonthStart;
       })
-      .reduce((sum: number, booking: BookingData) => sum + booking.totalAmount, 0);
+      .reduce((sum, booking) => sum + booking.totalAmount, 0);
 
     const averageBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
 
     // Upcoming bookings (future bookings)
-    const upcomingBookings = locationBookings.filter((booking: BookingData) => {
+    const upcomingBookings = locationBookings.filter(booking => {
       const bookingStart = new Date(booking.startTime);
       return bookingStart > now && (booking.status === 'Pending' || booking.status === 'Confirmed');
     }).length;
 
     // Bookings by status
-    const statusCounts = locationBookings.reduce((acc: Record<string, number>, booking: BookingData) => {
+    const statusCounts = locationBookings.reduce((acc, booking) => {
       acc[booking.status] = (acc[booking.status] || 0) + 1;
       return acc;
     }, {} as Record<BookingStatus, number>);
@@ -183,7 +183,7 @@ export const useLocationBookingStats = (locationId: string | undefined) => {
 
     // Recent bookings (last 5)
     const recentBookings = locationBookings
-      .sort((a: BookingData, b: BookingData) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
 
     return {

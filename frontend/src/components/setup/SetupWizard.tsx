@@ -13,8 +13,7 @@ import {
 import { 
   SetupStep, 
   CompanyProfile, 
-  SetupWizardProps,
-  Location
+  SetupWizardProps
 } from '@shared/types';
 import { LocationForm } from '../locations/LocationForm';
 import { useLocationStats } from '../../hooks/useLocations';
@@ -327,7 +326,7 @@ export function SetupWizard({ isOpen, onClose, onComplete, initialStep = 'compan
               ) : (
                 <div className="space-y-4">
                   {/* Display recent locations from API */}
-                  {locationStats?.recentLocations?.map((location: Location) => (
+                  {locationStats?.recentLocations?.map((location) => (
                     <div key={location._id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>

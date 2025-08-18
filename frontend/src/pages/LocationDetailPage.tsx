@@ -2,7 +2,6 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Settings, BarChart3, Calendar } from 'lucide-react';
 import { Breadcrumb } from '../components/navigation/Breadcrumb';
 import { useLocation } from '../hooks/useLocations';
-import { AmenityType } from '@shared/types';
 
 export default function LocationDetailPage() {
   const { locationId } = useParams<{ locationId: string }>();
@@ -164,7 +163,7 @@ export default function LocationDetailPage() {
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-500 mb-2">Amenities</h3>
               <div className="flex flex-wrap gap-2">
-                {location.amenities.map((amenity: AmenityType) => (
+                {location.amenities.map((amenity) => (
                   <span
                     key={amenity}
                     className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"

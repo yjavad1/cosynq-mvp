@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, Search } from 'lucide-react';
@@ -6,7 +6,6 @@ import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
 import { useCreateBooking } from '../../hooks/useBookings';
 import { CreateBookingData } from '../../services/bookingApi';
-import { Space, Contact } from '@shared/types';
 import TimeSlotSelector from './TimeSlotSelector';
 
 interface BookingFormProps {
@@ -87,7 +86,7 @@ export function BookingForm({
   const filteredSpaces = useMemo(() => {
     if (!spacesData?.spaces) return [];
     
-    return spacesData.spaces.filter((space: Space) => {
+    return spacesData.spaces.filter(space => {
       // Only show active spaces
       if (!space.isActive) return false;
       
@@ -104,14 +103,14 @@ export function BookingForm({
   console.log("Raw Spaces Data:", spacesData);
   console.log("Raw Spaces Count:", spacesData?.spaces?.length || 0);
   console.log("Filtered Spaces Count:", filteredSpaces.length);
-  console.log("Raw Spaces List:", spacesData?.spaces?.map((s: Space) => ({
+  console.log("Raw Spaces List:", spacesData?.spaces?.map(s => ({
     id: s._id,
     name: s.name,
     type: s.type,
     locationId: s.locationId,
     isActive: s.isActive
   })));
-  console.log("Filtered Spaces List:", filteredSpaces.map((s: Space) => ({
+  console.log("Filtered Spaces List:", filteredSpaces.map(s => ({
     id: s._id,
     name: s.name,
     type: s.type,
@@ -127,7 +126,7 @@ export function BookingForm({
     if (!contactsData?.contacts) return [];
     if (!contactSearch.trim()) return contactsData.contacts;
     
-    return contactsData.contacts.filter((contact: Contact) =>
+    return contactsData.contacts.filter(contact =>
       `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.company?.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.email.toLowerCase().includes(contactSearch.toLowerCase())
@@ -151,12 +150,12 @@ export function BookingForm({
     setValue('endTime', selectedEndTime);
   };
 
-  // Handle time slot validation changes (memoized to prevent infinite renders)
-  const handleTimeSlotValidation = useCallback((isValid: boolean, error?: string, warnings?: string[]) => {
+  // Handle time slot validation changes
+  const handleTimeSlotValidation = (isValid: boolean, error?: string, warnings?: string[]) => {
     setTimeSlotValid(isValid);
     setTimeSlotError(error || '');
     setTimeSlotWarnings(warnings || []);
-  }, []); // No dependencies needed as we're just setting state
+  };
 
   // Handle contact selection
   const handleContactSelect = (contact: any) => {
@@ -217,7 +216,7 @@ export function BookingForm({
   };
 
   // Get selected space details
-  const selectedSpace = filteredSpaces.find((space: Space) => space._id === spaceId);
+  const selectedSpace = filteredSpaces.find(space => space._id === spaceId);
 
   if (!isOpen) return null;
 
@@ -301,7 +300,7 @@ export function BookingForm({
                             {contactsLoading ? (
                               <div className="p-4 text-center text-gray-500">Searching...</div>
                             ) : filteredContacts.length > 0 ? (
-                              filteredContacts.map((contact: Contact) => (
+                              filteredContacts.map((contact) => (
                                 <button
                                   key={contact._id}
                                   type="button"
@@ -400,7 +399,7 @@ export function BookingForm({
                           : "Select a space..."
                         }
                       </option>
-                      {filteredSpaces.map((space: Space) => (
+                      {filteredSpaces.map((space) => (
                         <option key={space._id} value={space._id}>
                           {space.name} - {space.type} (Capacity: {space.capacity})
                         </option>
