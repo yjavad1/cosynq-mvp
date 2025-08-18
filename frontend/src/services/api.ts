@@ -26,8 +26,9 @@ import {
   CreateProductTypeData,
   ProductTypesResponse
 } from '@shared/types';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiService {
   private api: AxiosInstance;

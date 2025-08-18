@@ -11,6 +11,7 @@ import {
   ChatBubbleLeftIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
+import { getApiUrl, logApiConfig } from '../utils/apiConfig';
 
 interface AnalyticsData {
   overview: {
@@ -59,13 +60,19 @@ export function AnalyticsPage() {
 
   // Fetch analytics data
   useEffect(() => {
+    // Log API configuration for debugging
+    logApiConfig();
+    
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
         setError(null);
         console.log('📊 Fetching analytics data for timeRange:', timeRange);
         
-        const response = await fetch(`/api/analytics?timeRange=${timeRange}`);
+        const apiUrl = getApiUrl(`analytics?timeRange=${timeRange}`);
+        console.log('📊 API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
