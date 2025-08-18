@@ -9,24 +9,37 @@ import mongoose from "mongoose";
 import twilio from "twilio";
 
 // Simple rate limiting for webhooks (Railway protection)
-const webhookRateLimit = new Map<string, { count: number; resetTime: number }>();
+const webhookRateLimit = new Map<
+  string,
+  { count: number; resetTime: number }
+>();
+
+// Cleanup expired entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of webhookRateLimit.entries()) {
+    if (now > record.resetTime) {
+      webhookRateLimit.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000); // 5 minutes
 
 const checkRateLimit = (ip: string): boolean => {
   const now = Date.now();
   const windowMs = 60000; // 1 minute window
   const maxRequests = 100; // Max 100 requests per minute per IP
-  
+
   const record = webhookRateLimit.get(ip);
-  
+
   if (!record || now > record.resetTime) {
     webhookRateLimit.set(ip, { count: 1, resetTime: now + windowMs });
     return true;
   }
-  
+
   if (record.count >= maxRequests) {
     return false;
   }
-  
+
   record.count++;
   return true;
 };
@@ -75,18 +88,23 @@ const isWhatsAppEnabled = () => {
 // Validate required environment variables for Railway deployment
 const validateEnvironment = () => {
   const requiredVars = [];
-  
+
   if (process.env.ENABLE_WHATSAPP === "true") {
-    if (!process.env.TWILIO_ACCOUNT_SID) requiredVars.push("TWILIO_ACCOUNT_SID");
+    if (!process.env.TWILIO_ACCOUNT_SID)
+      requiredVars.push("TWILIO_ACCOUNT_SID");
     if (!process.env.TWILIO_AUTH_TOKEN) requiredVars.push("TWILIO_AUTH_TOKEN");
-    if (!process.env.TWILIO_WHATSAPP_NUMBER) requiredVars.push("TWILIO_WHATSAPP_NUMBER");
+    if (!process.env.TWILIO_WHATSAPP_NUMBER)
+      requiredVars.push("TWILIO_WHATSAPP_NUMBER");
   }
-  
+
   if (requiredVars.length > 0) {
-    console.warn("⚠️ Missing environment variables for WhatsApp:", requiredVars.join(", "));
+    console.warn(
+      "⚠️ Missing environment variables for WhatsApp:",
+      requiredVars.join(", ")
+    );
     return false;
   }
-  
+
   return true;
 };
 
@@ -200,6 +218,27 @@ export const handleWebhook = async (req: Request, res: Response) => {
     console.log("Body type:", typeof req.body);
     console.log("Body keys:", Object.keys(req.body || {}));
 
+    // Verify Twilio webhook signature for security
+    const twilioSignature = req.headers['x-twilio-signature'] as string;
+    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const params = req.body;
+
+    if (process.env.NODE_ENV === 'production' && process.env.TWILIO_AUTH_TOKEN) {
+      const isValidSignature = twilio.validateRequest(
+        process.env.TWILIO_AUTH_TOKEN,
+        twilioSignature,
+        url,
+        params
+      );
+
+      if (!isValidSignature) {
+        console.error("❌ Invalid Twilio signature - potential security threat");
+        res.writeHead(403, { "Content-Type": "text/xml" });
+        return res.end(twiml.toString());
+      }
+      console.log("✅ Twilio signature verified");
+    }
+
     const { error, value } = webhookSchema.validate(req.body);
     if (error) {
       console.error("Webhook validation error:", error.details);
@@ -207,9 +246,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
       res.writeHead(200, { "Content-Type": "text/xml" });
       return res.end(twiml.toString());
     }
-
-    // TODO: In production, you should verify the webhook signature
-    // to ensure it's actually from Twilio
 
     // Get organization ID from environment or create a default one
     // In a multi-tenant setup, you'd determine this from the webhook data or route
@@ -242,7 +278,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         try {
           const fromNumber = value.From?.replace("whatsapp:", "") || "";
           const messageBody = value.Body || "";
-          
+
           if (fromNumber) {
             const autoResponseMessage =
               await twilioWhatsAppService.sendAutoResponse(
@@ -362,10 +398,30 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
 
     console.log("=== GET CONVERSATIONS REQUEST ===");
     console.log("Organization ID:", organizationId);
+    console.log("Organization ID type:", typeof organizationId);
+
+    // Try to match both the auth organizationId and default organizationId for debugging
+    const debugOrgIds = [
+      organizationId,
+      new mongoose.Types.ObjectId(process.env.DEFAULT_ORGANIZATION_ID || "507f1f77bcf86cd799439011")
+    ];
+    
+    console.log("🔍 Debug: Checking all possible organization IDs:", debugOrgIds);
+    
+    // Check what messages exist in the database
+    const allMessages = await WhatsAppMessage.find({}).limit(10);
+    console.log("🔍 Debug: Sample messages in database:", allMessages.map(m => ({
+      _id: m._id,
+      organizationId: m.organizationId,
+      conversationId: m.conversationId,
+      direction: m.direction,
+      fromNumber: m.fromNumber,
+      toNumber: m.toNumber
+    })));
 
     // Aggregate conversations by conversationId with latest message
     const conversations = await WhatsAppMessage.aggregate([
-      { $match: { organizationId } },
+      { $match: { organizationId: { $in: debugOrgIds } } }, // Match multiple org IDs for now
       { $sort: { sentAt: -1 } },
       {
         $group: {
@@ -382,7 +438,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
 
     // Get total count
     const totalConversations = await WhatsAppMessage.aggregate([
-      { $match: { organizationId } },
+      { $match: { organizationId: { $in: debugOrgIds } } }, // Match multiple org IDs for now
       { $group: { _id: "$conversationId" } },
       { $count: "total" },
     ]);

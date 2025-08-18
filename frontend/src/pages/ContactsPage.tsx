@@ -4,8 +4,9 @@ import { ContactList } from '../components/contacts/ContactList';
 import { ContactForm } from '../components/contacts/ContactForm';
 import { ContactStats } from '../components/contacts/ContactStats';
 import { ContactFilters } from '../components/contacts/ContactFilters';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, BarChart3, Home, MessageSquare } from 'lucide-react';
 import { ContactType, ContextState } from '@shared/types';
+import { Link } from 'react-router-dom';
 
 export function ContactsPage() {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
@@ -62,13 +63,36 @@ export function ContactsPage() {
               <p className="text-gray-600">Manage your leads, members, and prospects</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsCreateFormOpen(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Add Contact
-          </button>
+          <div className="flex space-x-3">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Link>
+            <Link
+              to="/analytics"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Link>
+            <Link
+              to="/whatsapp"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              WhatsApp
+            </Link>
+            <button
+              onClick={() => setIsCreateFormOpen(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Contact
+            </button>
+          </div>
         </div>
 
         {/* Stats Section */}
