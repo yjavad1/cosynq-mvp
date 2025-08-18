@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { MessageSquare, Send, Phone, Users, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { MessageSquare, Send, Phone, Users, Clock, Home, BarChart3 } from "lucide-react";
 import {
   useWhatsAppStatus,
   useSendWhatsAppMessage,
@@ -27,8 +28,13 @@ export function WhatsAppPage() {
       await sendMessage.mutateAsync(newMessage);
       setNewMessage({ toNumber: "", messageBody: "" });
       setShowSendForm(false);
-    } catch (error) {
+      // Show success message
+      alert("✅ Message sent successfully!");
+    } catch (error: any) {
       console.error("Failed to send message:", error);
+      // Show user-friendly error message
+      const errorMessage = error.response?.data?.message || error.message || "Failed to send message";
+      alert(`❌ ${errorMessage}`);
     }
   };
 
@@ -70,13 +76,29 @@ export function WhatsAppPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowSendForm(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
-          >
-            <Send className="h-5 w-5 mr-2" />
-            Send Message
-          </button>
+          <div className="flex space-x-3">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Link>
+            <Link
+              to="/analytics"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Link>
+            <button
+              onClick={() => setShowSendForm(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+            >
+              <Send className="h-5 w-5 mr-2" />
+              Send Message
+            </button>
+          </div>
         </div>
 
         {/* Status Cards */}
@@ -240,6 +262,9 @@ export function WhatsAppPage() {
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           Include country code (e.g., +1 for US)
+                        </p>
+                        <p className="mt-1 text-xs text-yellow-600">
+                          💡 Tip: Recipients must message you first, or you can only message them within 24 hours of their last message
                         </p>
                       </div>
 

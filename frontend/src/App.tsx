@@ -22,6 +22,7 @@ import LocationSpacesPage from "./pages/LocationSpacesPage";
 import LocationDetailPage from "./pages/LocationDetailPage";
 import BookingsPage from "./pages/BookingsPage";
 import { WhatsAppPage } from "./pages/WhatsAppPage";
+import { AnalyticsPage } from "./pages/Analyticspage";
 
 const queryClient = new QueryClient();
 
@@ -155,6 +156,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <BookingsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AnalyticsPage />
                   </ProtectedRoute>
                 }
               />

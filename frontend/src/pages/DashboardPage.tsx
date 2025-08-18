@@ -12,7 +12,8 @@ import {
   TrendingUp,
   Bell,
   Search,
-  Calendar
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 import { SetupWizard } from '../components/setup/SetupWizard';
 import { IncompleteSetupBanner } from '../components/onboarding/IncompleteSetupBanner';
@@ -346,17 +347,37 @@ const DashboardPage: React.FC = () => {
                       <ArrowRight className="h-5 w-5 text-green-600 group-hover:translate-x-1 transition-transform" />
                     </Link>
 
-                    <div className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 opacity-60">
+                    <Link
+                      to="/analytics"
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 rounded-lg border border-orange-200 transition-colors group"
+                    >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-400 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
                           <BarChart3 className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-600">Analytics</p>
-                          <p className="text-sm text-gray-500">Coming soon</p>
+                          <p className="font-medium text-orange-900">Analytics</p>
+                          <p className="text-sm text-orange-700">View insights & reports</p>
                         </div>
                       </div>
-                    </div>
+                      <ArrowRight className="h-5 w-5 text-orange-600 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+
+                    <Link
+                      to="/whatsapp"
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 rounded-lg border border-green-200 transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                          <MessageSquare className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-900">WhatsApp</p>
+                          <p className="text-sm text-green-700">Business messaging</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-green-600 group-hover:translate-x-1 transition-transform" />
+                    </Link>
                   </div>
                 </div>
               </div>

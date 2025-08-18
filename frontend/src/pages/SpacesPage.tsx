@@ -3,7 +3,8 @@ import { useSpaces, useDeleteSpace, useCleanupOrphanedSpaces } from '../hooks/us
 import { Space } from '@shared/types';
 import { SpaceCard } from '../components/spaces/SpaceCard';
 import { SpaceForm } from '../components/spaces/SpaceForm';
-import { Plus, Search, Filter, Grid, List, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, Trash2, AlertTriangle, BarChart3, Home, MessageSquare } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function SpacesPage() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -141,6 +142,27 @@ export function SpacesPage() {
             </p>
           </div>
           <div className="flex space-x-3">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Link>
+            <Link
+              to="/analytics"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Link>
+            <Link
+              to="/whatsapp"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              WhatsApp
+            </Link>
             <button
               onClick={() => cleanupOrphanedSpaces.mutate()}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"

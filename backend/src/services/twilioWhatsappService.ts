@@ -78,6 +78,34 @@ export class TwilioWhatsAppService {
   }
 
   /**
+   * Check if a phone number is within the 24-hour messaging window
+   */
+  private async isWithinMessagingWindow(toNumber: string, organizationId: string): Promise<boolean> {
+    try {
+      // Look for recent inbound messages from this number (within 24 hours)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      const recentInboundMessage = await WhatsAppMessage.findOne({
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+        fromNumber: toNumber,
+        direction: "inbound",
+        sentAt: { $gte: twentyFourHoursAgo },
+      }).sort({ sentAt: -1 });
+
+      const isWithinWindow = !!recentInboundMessage;
+      console.log(`📅 Number ${toNumber} ${isWithinWindow ? 'IS' : 'IS NOT'} within 24h messaging window`);
+      if (recentInboundMessage) {
+        console.log(`📅 Last inbound message: ${recentInboundMessage.sentAt}`);
+      }
+      
+      return isWithinWindow;
+    } catch (error) {
+      console.error("❌ Error checking messaging window:", error);
+      return false; // Assume not within window if check fails
+    }
+  }
+
+  /**
    * Send a WhatsApp message via Twilio
    */
   async sendMessage(request: SendMessageRequest): Promise<IWhatsAppMessage> {
@@ -94,16 +122,55 @@ export class TwilioWhatsAppService {
         throw new Error(`Invalid phone number format: ${request.toNumber}. Expected format: +1234567890`);
       }
 
+      // Check if number is within messaging window
+      const withinWindow = await this.isWithinMessagingWindow(request.toNumber, request.organizationId);
+      if (!withinWindow) {
+        console.log("⚠️ Number is outside 24h window - message may require template approval");
+      }
+
       // Format numbers for WhatsApp (must include whatsapp: prefix)
       const fromWhatsApp = `whatsapp:${this.fromNumber}`;
       const toWhatsApp = `whatsapp:${request.toNumber}`;
 
-      // Send message via Twilio
-      const twilioMessage = await this.twilioClient.messages.create({
-        from: fromWhatsApp,
-        to: toWhatsApp,
-        body: request.messageBody,
-      });
+      // Check if we can send a free-form message or need to use template
+      let twilioMessage;
+      
+      try {
+        // First try to send as free-form message (works within 24h window)
+        twilioMessage = await this.twilioClient.messages.create({
+          from: fromWhatsApp,
+          to: toWhatsApp,
+          body: request.messageBody,
+        });
+        console.log("✅ Free-form message sent successfully");
+      } catch (error: any) {
+        // If we get error 63016, try with a simple template format
+        if (error.code === 63016 || error.message?.includes('63016')) {
+          console.log("⚠️ Free-form message failed, attempting with basic template format...");
+          
+          // Try using a simple template-style message for sandbox
+          const templateMessage = `Hello! ${request.messageBody}\n\nReply STOP to opt out.`;
+          
+          try {
+            twilioMessage = await this.twilioClient.messages.create({
+              from: fromWhatsApp,
+              to: toWhatsApp,
+              body: templateMessage,
+            });
+            console.log("✅ Template-style message sent successfully");
+          } catch (templateError: any) {
+            console.error("❌ Both free-form and template attempts failed");
+            throw new Error(
+              `WhatsApp messaging failed: ${error.message}. ` +
+              `This usually means the recipient needs to message you first within 24 hours, ` +
+              `or you need to use approved message templates in production. ` +
+              `Current error: ${templateError.message}`
+            );
+          }
+        } else {
+          throw error;
+        }
+      }
 
       console.log("✅ Twilio message sent:", twilioMessage.sid);
 

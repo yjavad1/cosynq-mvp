@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ensureEssentialIndexes } from './database-indexes';
 
 const connectDB = async (): Promise<void> => {
   try {
@@ -19,6 +20,9 @@ const connectDB = async (): Promise<void> => {
     await mongoose.connect(mongoURI, options);
     
     console.log('✅ MongoDB connected successfully');
+    
+    // Ensure essential indexes exist for production stability
+    await ensureEssentialIndexes();
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
