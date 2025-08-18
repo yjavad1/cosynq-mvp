@@ -2,13 +2,17 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, './shared'),
     },
+  },
+  define: {
+    // Pass environment info to the client
+    __VITE_MODE__: JSON.stringify(mode),
   },
   server: {
     port: 3000,
@@ -57,4 +61,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
   },
-})
+}))
