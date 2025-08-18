@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 export interface TimeSlot {
   startTime: string; // ISO string
@@ -135,8 +135,8 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
     };
   }, [availabilityData]);
 
-  // Validation function for selected time slot
-  const validateTimeSlot = (startTime: string, endTime: string) => {
+  // Validation function for selected time slot (memoized to prevent infinite renders)
+  const validateTimeSlot = useCallback((startTime: string, endTime: string) => {
     setLocalError('');
 
     if (!availabilityData || !startTime || !endTime) {
@@ -168,10 +168,10 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
       slot: selectedSlot,
       warnings: selectedSlot.validationWarnings || []
     };
-  };
+  }, [availabilityData]); // Only recreate when availabilityData changes
 
-  // Helper to check if a specific time slot is available
-  const isSlotAvailable = (startTime: string, endTime: string) => {
+  // Helper to check if a specific time slot is available (memoized)
+  const isSlotAvailable = useCallback((startTime: string, endTime: string) => {
     if (!availabilityData) return false;
     
     return availabilityData.availableSlots.some(slot => {
@@ -179,7 +179,7 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
       const slotEnd = formatTimeForInput(slot.endTime);
       return slotStart === startTime && slotEnd === endTime;
     });
-  };
+  }, [availabilityData]);
 
   // Force refresh time slots
   const refreshSlots = () => {

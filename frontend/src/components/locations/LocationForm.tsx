@@ -15,7 +15,7 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
-import { AxiosError } from "axios";
+// Note: AxiosError removed due to axios type export issues
 import {
   Location,
   CreateLocationData,
@@ -39,11 +39,7 @@ interface LocationFormProps {
   onOnboardingNext?: () => void; // Callback for onboarding next step
 }
 
-interface ApiErrorResponse {
-  message: string;
-  errors?: string[];
-  success: boolean;
-}
+// ApiErrorResponse interface removed due to AxiosError type export issues
 
 const availableAmenities: AmenityType[] = [
   "WiFi",
@@ -368,7 +364,7 @@ export function LocationForm({
       setIsSubmittingForm(false);
 
       if (error && typeof error === "object" && "isAxiosError" in error) {
-        const axiosError = error as AxiosError<ApiErrorResponse>;
+        const axiosError = error as any; // Using any due to axios type export issues
 
         if (axiosError.response?.status === 409) {
           const errorMessage =
