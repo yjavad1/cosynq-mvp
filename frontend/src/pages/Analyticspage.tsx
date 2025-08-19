@@ -11,6 +11,7 @@ import {
   ChatBubbleLeftIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
+import { apiService } from '../services/api';
 
 interface AnalyticsData {
   overview: {
@@ -64,24 +65,21 @@ export function AnalyticsPage() {
         setLoading(true);
         setError(null);
         console.log('📊 Fetching analytics data for timeRange:', timeRange);
+        console.log('🔗 Using API_BASE_URL from shared service');
         
-        const response = await fetch(`/api/analytics?timeRange=${timeRange}`);
+        const response = await apiService.getAnalytics({ timeRange });
+        console.log('📊 Analytics API response received:', response.data);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('📊 Analytics data received:', data);
-
-        if (data.success) {
-          setAnalytics(data.data);
+        if (response.data?.success) {
+          setAnalytics(response.data.data);
         } else {
-          throw new Error(data.message || 'Failed to fetch analytics');
+          throw new Error(response.data?.message || 'Failed to fetch analytics');
         }
       } catch (error: any) {
         console.error('❌ Error fetching analytics:', error);
-        setError(error.message);
+        // Handle axios error structure
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch analytics';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -204,7 +202,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Bookings</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {analytics.overview.totalBookings.toLocaleString()}
+                  {(analytics.overview?.totalBookings || 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -216,7 +214,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(analytics.overview.totalRevenue)}
+                  {formatCurrency(analytics.overview?.totalRevenue || 0)}
                 </p>
               </div>
             </div>
@@ -228,7 +226,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Avg Utilization</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {analytics.overview.averageUtilization}%
+                  {analytics.overview?.averageUtilization || 0}%
                 </p>
               </div>
             </div>
@@ -240,7 +238,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active Contacts</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {analytics.overview.activeContacts}
+                  {analytics.overview?.activeContacts || 0}
                 </p>
               </div>
             </div>
@@ -252,7 +250,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Avg Booking Value</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(analytics.overview.averageBookingValue)}
+                  {formatCurrency(analytics.overview?.averageBookingValue || 0)}
                 </p>
               </div>
             </div>
@@ -264,7 +262,7 @@ export function AnalyticsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">WhatsApp Chats</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {analytics.whatsapp.totalConversations}
+                  {analytics.whatsapp?.totalConversations || 0}
                 </p>
               </div>
             </div>
@@ -279,7 +277,7 @@ export function AnalyticsPage() {
               Space Performance
             </h3>
             <div className="space-y-4">
-              {analytics.trends.spaceUtilization.slice(0, 5).map((space, idx) => (
+              {(analytics.trends?.spaceUtilization || []).slice(0, 5).map((space, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
@@ -316,7 +314,7 @@ export function AnalyticsPage() {
              Popular Time Slots
            </h3>
            <div className="space-y-3">
-             {analytics.trends.popularTimeSlots.slice(0, 8).map((slot, idx) => (
+             {(analytics.trends?.popularTimeSlots || []).slice(0, 8).map((slot, idx) => (
                <div key={idx} className="flex items-center justify-between">
                  <div className="flex items-center">
                    <ClockIcon className="h-4 w-4 text-gray-400 mr-2" />
@@ -346,7 +344,7 @@ export function AnalyticsPage() {
              Revenue Trends
            </h3>
            <div className="space-y-3">
-             {analytics.trends.revenueByMonth.slice(-6).map((month, idx) => (
+             {(analytics.trends?.revenueByMonth || []).slice(-6).map((month, idx) => (
                <div key={idx} className="flex items-center justify-between">
                  <span className="text-sm font-medium text-gray-900">
                    {new Date(`${month.month}-01`).toLocaleDateString('en-US', { 
@@ -376,20 +374,20 @@ export function AnalyticsPage() {
              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                <span className="text-sm font-medium text-blue-900">New Contacts</span>
                <span className="text-lg font-bold text-blue-600">
-                 {analytics.contacts.newContacts}
+                 {analytics.contacts?.newContacts || 0}
                </span>
              </div>
              
              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                <span className="text-sm font-medium text-green-900">Conversion Rate</span>
                <span className="text-lg font-bold text-green-600">
-                 {analytics.contacts.conversionRate}%
+                 {analytics.contacts?.conversionRate || 0}%
                </span>
              </div>
 
              <div className="space-y-2">
                <h4 className="text-sm font-medium text-gray-700">Contact Types</h4>
-               {analytics.contacts.contactsByType.map((type, idx) => (
+               {(analytics.contacts?.contactsByType || []).map((type, idx) => (
                  <div key={idx} className="flex items-center justify-between">
                    <span className="text-sm text-gray-600 capitalize">
                      {type._id}s
@@ -405,7 +403,7 @@ export function AnalyticsPage() {
        </div>
 
        {/* WhatsApp Analytics */}
-       {analytics.whatsapp.totalMessages > 0 && (
+       {(analytics.whatsapp?.totalMessages || 0) > 0 && (
          <div className="mt-8 bg-white p-6 rounded-lg shadow">
            <h3 className="text-lg font-semibold text-gray-900 mb-4">
              WhatsApp Performance
@@ -413,19 +411,19 @@ export function AnalyticsPage() {
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div className="text-center">
                <p className="text-3xl font-bold text-green-600">
-                 {analytics.whatsapp.totalMessages}
+                 {analytics.whatsapp?.totalMessages || 0}
                </p>
                <p className="text-sm text-gray-500">Total Messages</p>
              </div>
              <div className="text-center">
                <p className="text-3xl font-bold text-blue-600">
-                 {analytics.whatsapp.totalConversations}
+                 {analytics.whatsapp?.totalConversations || 0}
                </p>
                <p className="text-sm text-gray-500">Active Conversations</p>
              </div>
              <div className="text-center">
                <div className="space-y-1">
-                 {analytics.whatsapp.messagesByDirection.map((dir, idx) => (
+                 {(analytics.whatsapp?.messagesByDirection || []).map((dir, idx) => (
                    <div key={idx} className="flex justify-between text-sm">
                      <span className="text-gray-600 capitalize">{dir._id}:</span>
                      <span className="font-medium">{dir.count}</span>
@@ -452,15 +450,15 @@ export function AnalyticsPage() {
            </div>
            <div>
              <span className="text-gray-600">Total Spaces:</span>
-             <p className="font-medium">{analytics.overview.totalSpaces} spaces</p>
+             <p className="font-medium">{analytics.overview?.totalSpaces || 0} spaces</p>
            </div>
            <div>
              <span className="text-gray-600">Avg per Booking:</span>
-             <p className="font-medium">{formatCurrency(analytics.overview.averageBookingValue)}</p>
+             <p className="font-medium">{formatCurrency(analytics.overview?.averageBookingValue || 0)}</p>
            </div>
            <div>
              <span className="text-gray-600">Utilization:</span>
-             <p className="font-medium">{analytics.overview.averageUtilization}% capacity</p>
+             <p className="font-medium">{analytics.overview?.averageUtilization || 0}% capacity</p>
            </div>
          </div>
        </div>

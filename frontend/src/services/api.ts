@@ -450,6 +450,23 @@ class ApiService {
     return this.api.post(`/product-types/${productTypeId}/generate-spaces`, { count });
   }
 
+  // Analytics Management Methods
+  async getAnalytics(params?: {
+    timeRange?: string;
+  }): Promise<AxiosResponse> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = queryParams.toString();
+    console.log('🔗 API Service: Fetching analytics from:', `${this.api.defaults.baseURL}/analytics${queryString ? `?${queryString}` : ''}`);
+    return this.api.get(`/analytics${queryString ? `?${queryString}` : ''}`);
+  }
+
   // WhatsApp Management Methods
   async getWhatsAppStatus(): Promise<AxiosResponse> {
     return this.api.get('/whatsapp/status');
