@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
 import { X, Calendar, Clock, Users, MapPin, AlertCircle, Search } from 'lucide-react';
@@ -6,7 +6,7 @@ import { useContacts } from '../../hooks/useContacts';
 import { useSpaces } from '../../hooks/useSpaces';
 import { useCreateBooking } from '../../hooks/useBookings';
 import { CreateBookingData } from '../../services/bookingApi';
-import TimeSlotSelector from './TimeSlotSelector';
+import SimpleTimeSelector from './SimpleTimeSelector';
 
 interface BookingFormProps {
   locationId: string;
@@ -40,6 +40,8 @@ export function BookingForm({
   prefilledSpaceId, 
   prefilledDate 
 }: BookingFormProps) {
+  // Track re-renders
+  console.log('🔄 BookingForm render');
   const [contactSearch, setContactSearch] = useState('');
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [timeSlotValid, setTimeSlotValid] = useState(false);
@@ -68,7 +70,8 @@ export function BookingForm({
   });
 
   // Watch form values for real-time validation
-  const watchedValues = watch(['spaceId', 'date', 'startTime', 'endTime']);
+  const watchFields = useMemo(() => ['spaceId', 'date', 'startTime', 'endTime'] as const, []);
+  const watchedValues = watch(watchFields);
   const [spaceId, date, startTime, endTime] = watchedValues;
 
   // Data fetching
@@ -77,16 +80,17 @@ export function BookingForm({
     limit: 50
   });
 
-  const { data: spacesData } = useSpaces({
-    // Filter spaces by location if needed (spaces are already location-scoped in API)
+  const spacesParams = useMemo(() => ({
     limit: 100
-  });
+  }), []);
+
+  const { data: spacesData } = useSpaces(spacesParams);
 
   // *** FILTER SPACES BY LOCATION AND ACTIVE STATUS ***
   const filteredSpaces = useMemo(() => {
     if (!spacesData?.spaces) return [];
     
-    return spacesData.spaces.filter(space => {
+    return spacesData.spaces.filter((space: any) => {
       // Only show active spaces
       if (!space.isActive) return false;
       
@@ -97,26 +101,7 @@ export function BookingForm({
     });
   }, [spacesData?.spaces, _locationId]);
 
-  // *** DEBUGGING: Log space data for consistency analysis ***
-  console.log("=== BOOKING FORM SPACE DEBUG ===");
-  console.log("Location ID Filter:", _locationId);
-  console.log("Raw Spaces Data:", spacesData);
-  console.log("Raw Spaces Count:", spacesData?.spaces?.length || 0);
-  console.log("Filtered Spaces Count:", filteredSpaces.length);
-  console.log("Raw Spaces List:", spacesData?.spaces?.map(s => ({
-    id: s._id,
-    name: s.name,
-    type: s.type,
-    locationId: s.locationId,
-    isActive: s.isActive
-  })));
-  console.log("Filtered Spaces List:", filteredSpaces.map(s => ({
-    id: s._id,
-    name: s.name,
-    type: s.type,
-    locationId: s.locationId,
-    isActive: s.isActive
-  })));
+  // Debug removed to prevent infinite re-renders
 
   // Mutations
   const createBookingMutation = useCreateBooking();
@@ -126,7 +111,7 @@ export function BookingForm({
     if (!contactsData?.contacts) return [];
     if (!contactSearch.trim()) return contactsData.contacts;
     
-    return contactsData.contacts.filter(contact =>
+    return contactsData.contacts.filter((contact: any) =>
       `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.company?.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.email.toLowerCase().includes(contactSearch.toLowerCase())
@@ -144,18 +129,18 @@ export function BookingForm({
     return endMinutes - startMinutes;
   }
 
-  // Handle time slot selection from TimeSlotSelector
-  const handleTimeSlotSelect = (selectedStartTime: string, selectedEndTime: string) => {
+  // Handle time slot selection from SimpleTimeSelector
+  const handleTimeSlotSelect = useCallback((selectedStartTime: string, selectedEndTime: string) => {
     setValue('startTime', selectedStartTime);
     setValue('endTime', selectedEndTime);
-  };
+  }, [setValue]);
 
   // Handle time slot validation changes
-  const handleTimeSlotValidation = (isValid: boolean, error?: string, warnings?: string[]) => {
+  const handleTimeSlotValidation = useCallback((isValid: boolean, error?: string, warnings?: string[]) => {
     setTimeSlotValid(isValid);
     setTimeSlotError(error || '');
     setTimeSlotWarnings(warnings || []);
-  };
+  }, []);
 
   // Handle contact selection
   const handleContactSelect = (contact: any) => {
@@ -169,19 +154,76 @@ export function BookingForm({
 
   // Handle form submission
   const onSubmit = async (data: BookingFormData) => {
+    console.log('=== BOOKING FORM SUBMISSION STARTED ===');
+    console.log('Form data received:', data);
+    console.log('Current timeSlotValid:', timeSlotValid);
+    
     try {
       // Validate time slot selection before submission
-      if (!timeSlotValid || !data.startTime || !data.endTime) {
+      if (!data.startTime || !data.endTime) {
+        console.log('❌ Basic validation failed:', {
+          timeSlotValid,
+          startTime: data.startTime,
+          endTime: data.endTime
+        });
+        setTimeSlotError('Please select both start and end times');
+        return;
+      }
+
+      if (!timeSlotValid) {
+        console.log('❌ Time slot validation failed:', {
+          timeSlotValid,
+          startTime: data.startTime,
+          endTime: data.endTime
+        });
         setTimeSlotError('Please select a valid time slot');
         return;
       }
 
-      // Prepare booking data
+      console.log('✅ Time slot validation passed');
+
+      // Prepare booking data - create dates properly
       const startDateTime = new Date(`${data.date}T${data.startTime}:00`);
       const endDateTime = new Date(`${data.date}T${data.endTime}:00`);
 
+      console.log('DateTime conversion:', {
+        originalDate: data.date,
+        originalStartTime: data.startTime,
+        originalEndTime: data.endTime,
+        startDateTime: startDateTime.toISOString(),
+        endDateTime: endDateTime.toISOString(),
+        startDateTimeLocal: startDateTime.toString(),
+        endDateTimeLocal: endDateTime.toString(),
+        isStartTimeInFuture: startDateTime > new Date(),
+        isEndTimeAfterStart: endDateTime > startDateTime,
+        durationMinutes: (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60)
+      });
+
       // Prepare booking data - handle contact vs customer data properly
       const hasContact = data.contactId && data.contactId.trim() !== '';
+      
+      console.log('Customer/Contact validation:', {
+        hasContact,
+        contactId: data.contactId,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        selectedContact
+      });
+
+      // Validate required customer data if no contact
+      if (!hasContact) {
+        if (!data.customerName || data.customerName.trim() === '') {
+          console.log('❌ Missing customer name');
+          setTimeSlotError('Customer name is required when no contact is selected');
+          return;
+        }
+        if (!data.customerEmail || data.customerEmail.trim() === '') {
+          console.log('❌ Missing customer email');
+          setTimeSlotError('Customer email is required when no contact is selected');
+          return;
+        }
+      }
       
       const bookingData: CreateBookingData = {
         spaceId: data.spaceId,
@@ -197,10 +239,15 @@ export function BookingForm({
         specialRequests: data.specialRequests || undefined,
         notes: data.notes || undefined,
         totalAmount: 0, // Calculate based on space rates
-        currency: 'USD'
+        currency: 'INR'
       };
 
-      await createBookingMutation.mutateAsync(bookingData);
+      console.log('📤 Prepared booking data:', bookingData);
+      console.log('🔄 Calling createBookingMutation...');
+
+      const result = await createBookingMutation.mutateAsync(bookingData);
+      
+      console.log('✅ Booking creation successful:', result);
 
       // Reset form and close
       reset();
@@ -210,13 +257,21 @@ export function BookingForm({
       setTimeSlotError('');
       setTimeSlotWarnings([]);
       onSuccess();
+      
+      console.log('✅ Form reset and success callback called');
     } catch (error) {
-      console.error('Error creating booking:', error);
+      console.error('❌ Error creating booking:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
     }
   };
 
   // Get selected space details
-  const selectedSpace = filteredSpaces.find(space => space._id === spaceId);
+  const selectedSpace = useMemo(() => {
+    return filteredSpaces.find((space: any) => space._id === spaceId);
+  }, [filteredSpaces, spaceId]);
 
   if (!isOpen) return null;
 
@@ -226,7 +281,10 @@ export function BookingForm({
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
 
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={(e) => {
+            console.log('🚀 Form submit event triggered!');
+            handleSubmit(onSubmit)(e);
+          }}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
@@ -300,7 +358,7 @@ export function BookingForm({
                             {contactsLoading ? (
                               <div className="p-4 text-center text-gray-500">Searching...</div>
                             ) : filteredContacts.length > 0 ? (
-                              filteredContacts.map((contact) => (
+                              filteredContacts.map((contact: any) => (
                                 <button
                                   key={contact._id}
                                   type="button"
@@ -399,7 +457,7 @@ export function BookingForm({
                           : "Select a space..."
                         }
                       </option>
-                      {filteredSpaces.map((space) => (
+                      {filteredSpaces.map((space: any) => (
                         <option key={space._id} value={space._id}>
                           {space.name} - {space.type} (Capacity: {space.capacity})
                         </option>
@@ -474,11 +532,10 @@ export function BookingForm({
                     )}
                   </div>
 
-                  {/* Time Selection with Slot Enforcement */}
-                  <TimeSlotSelector
+                  {/* Time Selection */}
+                  <SimpleTimeSelector
                     spaceId={spaceId}
                     date={date}
-                    duration={60} // Default 1 hour duration
                     selectedStartTime={startTime}
                     selectedEndTime={endTime}
                     onTimeSlotSelect={handleTimeSlotSelect}
@@ -556,7 +613,7 @@ export function BookingForm({
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                disabled={isSubmitting || !timeSlotValid || !!timeSlotError}
+                disabled={isSubmitting}
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creating...' : 'Create Booking'}

@@ -15,7 +15,7 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
-import { AxiosError } from "axios";
+// import { AxiosError } from "axios";
 import {
   Location,
   CreateLocationData,

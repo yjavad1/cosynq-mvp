@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 export interface TimeSlot {
   startTime: string; // ISO string
@@ -136,7 +136,7 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
   }, [availabilityData]);
 
   // Validation function for selected time slot
-  const validateTimeSlot = (startTime: string, endTime: string) => {
+  const validateTimeSlot = useCallback((startTime: string, endTime: string) => {
     setLocalError('');
 
     if (!availabilityData || !startTime || !endTime) {
@@ -168,7 +168,7 @@ export function useTimeSlots(spaceId: string | null, date: string | null, durati
       slot: selectedSlot,
       warnings: selectedSlot.validationWarnings || []
     };
-  };
+  }, [availabilityData]);
 
   // Helper to check if a specific time slot is available
   const isSlotAvailable = (startTime: string, endTime: string) => {

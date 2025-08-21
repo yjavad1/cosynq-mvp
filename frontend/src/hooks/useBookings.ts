@@ -257,12 +257,23 @@ export const useCreateBooking = () => {
       // Return a context object with the snapshotted value
       return { previousBookings, optimisticBooking };
     },
-    onError: (err, _newBooking, context) => {
+    onError: (err: any, _newBooking, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousBookings) {
         queryClient.setQueryData([BOOKINGS_QUERY_KEY], context.previousBookings);
       }
-      console.error('Booking creation error:', err);
+      console.error('❌ Booking creation error:', err);
+      console.error('📋 Error response details:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        config: {
+          url: err.config?.url,
+          method: err.config?.method,
+          data: err.config?.data
+        }
+      });
     },
     onSuccess: (data, variables) => {
       console.log('✅ Booking created successfully:', data);

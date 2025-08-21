@@ -61,7 +61,7 @@ export function TimeSlotSelector({
       setSelectedSlotValue('');
       onValidationChange(false, 'Please select a time slot');
     }
-  }, [selectedStartTime, selectedEndTime, validateTimeSlot, onValidationChange]);
+  }, [selectedStartTime, selectedEndTime]);
 
   // Handle slot selection
   const handleSlotSelect = (slotValue: string) => {
