@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import EditBookingModal from './EditBookingModal';
+import { useEditBooking } from '../../hooks/useEditBooking';
 
 interface CalendarBooking {
   _id: string;
@@ -31,6 +33,27 @@ interface CalendarBooking {
   endTime: string;
   attendeeCount: number;
   status: 'confirmed' | 'pending' | 'cancelled';
+  // Additional fields needed for editing
+  spaceId?: string;
+  purpose?: string;
+  specialRequests?: string;
+  notes?: string;
+  bookingReference?: string;
+  contact?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  space?: {
+    _id: string;
+    name: string;
+    locationId?: string;
+    capacity: number;
+    type: string;
+  };
+  customerEmail?: string;
+  customerPhone?: string;
 }
 
 interface BookingCalendarProps {
@@ -43,8 +66,18 @@ interface BookingCalendarProps {
 
 const fetchCalendarBookings = async (locationId: string, startDate: string, endDate: string): Promise<CalendarBooking[]> => {
   const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
+  
+  // Build query params to exclude cancelled bookings and filter by location
+  const params = new URLSearchParams({
+    locationId,
+    startDate,
+    endDate,
+    // Exclude cancelled bookings from calendar display
+    excludeStatus: 'Cancelled'
+  });
+
   const response = await fetch(
-    `${apiUrl}/bookings?locationId=${locationId}&startDate=${startDate}&endDate=${endDate}`,
+    `${apiUrl}/bookings?${params.toString()}`,
     {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('cosynq_token')}`,
@@ -58,7 +91,17 @@ const fetchCalendarBookings = async (locationId: string, startDate: string, endD
   }
 
   const data = await response.json();
-  return data.data?.bookings || [];
+  const bookings = data.data?.bookings || [];
+  
+  // Client-side filter as additional safety net to ensure no cancelled bookings show
+  const activeBookings = bookings.filter((booking: CalendarBooking) => {
+    const status = booking.status?.toLowerCase();
+    return status !== 'cancelled';
+  });
+  
+  console.log(`📅 Fetched ${bookings.length} total bookings for location ${locationId}, showing ${activeBookings.length} active bookings`);
+  
+  return activeBookings;
 };
 
 const getStatusColor = (status: string): string => {
@@ -87,6 +130,16 @@ function BookingCalendarCore({
 }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // Edit booking functionality
+  const {
+    editState,
+    openEditModal,
+    closeEditModal,
+    updateBooking,
+    deleteBooking,
+    clearError
+  } = useEditBooking();
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -152,10 +205,49 @@ function BookingCalendarCore({
 
   const handleBookingClick = useCallback((booking: CalendarBooking, event: React.MouseEvent) => {
     event.stopPropagation();
+    
+    // Convert CalendarBooking to BookingData format for the edit modal
+    const bookingData = {
+      _id: booking._id,
+      organizationId: '', // Will be filled by backend
+      spaceId: booking.spaceId || '',
+      contactId: booking.contact?._id,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.status === 'confirmed' ? 'Confirmed' as const : 
+              booking.status === 'pending' ? 'Pending' as const :
+              booking.status === 'cancelled' ? 'Cancelled' as const : 'Pending' as const,
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      customerPhone: booking.customerPhone,
+      purpose: booking.purpose,
+      attendeeCount: booking.attendeeCount,
+      specialRequests: booking.specialRequests,
+      totalAmount: 0, // Will be filled by backend
+      currency: 'INR',
+      paymentStatus: 'Pending' as const,
+      checkedIn: false,
+      bookingReference: booking.bookingReference || '',
+      notes: booking.notes,
+      createdBy: '',
+      updatedBy: '',
+      createdAt: '',
+      updatedAt: '',
+      space: booking.space ? {
+        ...booking.space,
+        locationId: booking.space.locationId || '' // Ensure locationId is present
+      } : undefined,
+      contact: booking.contact
+    };
+
+    // Open edit modal instead of calling external handler
+    openEditModal(bookingData);
+    
+    // Still call the external handler if provided (for backward compatibility)
     if (onBookingClick) {
       onBookingClick(booking);
     }
-  }, [onBookingClick]);
+  }, [onBookingClick, openEditModal]);
 
   const handleCreateBooking = useCallback((date: Date, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -336,6 +428,18 @@ function BookingCalendarCore({
           })()}
         </div>
       )}
+
+      {/* Edit Booking Modal */}
+      <EditBookingModal
+        isOpen={editState.isOpen}
+        booking={editState.booking}
+        isLoading={editState.isLoading}
+        error={editState.error}
+        onClose={closeEditModal}
+        onSave={updateBooking}
+        onDelete={deleteBooking}
+        onClearError={clearError}
+      />
     </div>
   );
 }

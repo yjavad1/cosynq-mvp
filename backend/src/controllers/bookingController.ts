@@ -41,7 +41,7 @@ const createBookingSchema = Joi.object({
 });
 
 const updateBookingSchema = Joi.object({
-  startTime: Joi.date().min('now').optional(),
+  startTime: Joi.date().optional(),
   endTime: Joi.date().when('startTime', {
     is: Joi.exist(),
     then: Joi.date().greater(Joi.ref('startTime')).required(),
@@ -102,7 +102,9 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
       search = '',
       spaceId,
       contactId,
+      locationId,
       status,
+      excludeStatus,
       startDate,
       endDate,
       sortBy = 'startTime',
@@ -142,9 +144,47 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
       filter.contactId = contactId;
     }
 
+    // Location filter - find bookings for spaces in the specified location
+    if (locationId) {
+      if (!mongoose.Types.ObjectId.isValid(locationId as string)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid location ID format'
+        });
+      }
+      
+      // We need to find spaces that belong to this location and filter bookings by those spaces
+      const spacesInLocation = await Space.find({ locationId: locationId }).select('_id').lean();
+      const spaceIds = spacesInLocation.map(space => space._id);
+      
+      if (spaceIds.length > 0) {
+        filter.spaceId = { $in: spaceIds };
+      } else {
+        // No spaces found for this location, return empty results
+        return res.json({
+          success: true,
+          data: {
+            bookings: [],
+            pagination: {
+              currentPage: pageNum,
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: limitNum
+            }
+          },
+          message: 'No spaces found for the specified location'
+        });
+      }
+    }
+
     // Status filter
     if (status) {
       filter.status = status;
+    }
+
+    // Exclude status filter (for calendar views to hide cancelled bookings)
+    if (excludeStatus) {
+      filter.status = { $ne: excludeStatus };
     }
 
     // Date range filter - tolerant to both start/end and startTime/endTime fields
@@ -634,56 +674,104 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
 export const updateBooking = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    if (!ensureAuthenticated(req, res)) return;
-    const organizationId = req.user!._id;
-    const userId = req.user!._id;
-
-    console.log('=== UPDATE BOOKING REQUEST ===');
+    
+    console.log('=== UPDATE BOOKING DEBUG START ===');
+    console.log('🔍 Step 1: Initial request data');
     console.log('Booking ID:', id);
     console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('User authenticated:', !!req.user);
+    console.log('User ID:', req.user?._id);
+    
+    if (!ensureAuthenticated(req, res)) {
+      console.log('❌ Authentication failed');
+      return;
+    }
+    
+    const organizationId = req.user!._id;
+    const userId = req.user!._id;
+    
+    console.log('✅ Step 1: Authentication passed');
+    console.log('Organization ID:', organizationId);
 
+    console.log('🔍 Step 2: Validating booking ID format');
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid booking ID format:', id);
       return res.status(400).json({
         success: false,
         message: 'Invalid booking ID format'
       });
     }
+    console.log('✅ Step 2: Booking ID format valid');
 
+    console.log('🔍 Step 3: Joi schema validation');
+    console.log('Schema being used:', JSON.stringify(updateBookingSchema.describe(), null, 2));
+    console.log('Raw request body before validation:', req.body);
+    
     const { error, value } = updateBookingSchema.validate(req.body, {
       abortEarly: false,
       stripUnknown: true
     });
 
     if (error) {
-      console.error('Validation error:', error.details);
+      console.log('❌ Step 3: Joi validation failed');
+      console.error('Full error object:', error);
+      console.error('Error details:', error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        value: detail.context?.value,
+        context: detail.context
+      })));
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
         errors: error.details.map(detail => ({
           field: detail.path.join('.'),
-          message: detail.message
+          message: detail.message,
+          value: detail.context?.value
         }))
       });
     }
+    
+    console.log('✅ Step 3: Joi validation passed');
+    console.log('Validated value:', JSON.stringify(value, null, 2));
 
-    // Check if booking exists
+    console.log('🔍 Step 4: Checking if booking exists');
     const existingBooking = await Booking.findOne({ _id: id, organizationId });
     if (!existingBooking) {
+      console.log('❌ Step 4: Booking not found');
+      console.log('Search criteria: ID =', id, ', Organization ID =', organizationId);
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
       });
     }
+    console.log('✅ Step 4: Booking found');
+    console.log('Existing booking:', {
+      id: existingBooking._id,
+      startTime: existingBooking.startTime,
+      endTime: existingBooking.endTime,
+      status: existingBooking.status,
+      spaceId: existingBooking.spaceId
+    });
 
+    console.log('🔍 Step 5: Time modification validation');
     // Check if booking can be modified using enhanced time validation
     if (value.startTime || value.endTime) {
+      console.log('Time changes detected, checking modification permissions');
       const space = await Space.findById(existingBooking.spaceId).populate('locationId', 'timezone');
       const location = space?.locationId as any;
       const timezone = location?.timezone || 'Asia/Kolkata';
       
+      console.log('Space found:', space?.name);
+      console.log('Timezone:', timezone);
+      
       const modificationCheck = canModifyBooking(existingBooking.startTime, timezone, 4);
+      console.log('Modification check result:', modificationCheck);
       
       if (!modificationCheck.canModify) {
+        console.log('❌ Step 5: Time modification not allowed');
+        console.log('Reason:', modificationCheck.reason);
         return res.status(400).json({
           success: false,
           message: modificationCheck.reason,
@@ -695,10 +783,19 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
           }
         });
       }
+      console.log('✅ Step 5: Time modification allowed');
 
+      console.log('🔍 Step 6: Checking for booking conflicts');
       // If changing times, check for conflicts
       const newStartTime = value.startTime || existingBooking.startTime;
       const newEndTime = value.endTime || existingBooking.endTime;
+      
+      console.log('New time slot:', {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        originalStartTime: existingBooking.startTime,
+        originalEndTime: existingBooking.endTime
+      });
 
       const conflictingBookings = await Booking.find({
         _id: { $ne: id },
@@ -711,8 +808,19 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
           }
         ]
       });
+      
+      console.log('Conflicting bookings found:', conflictingBookings.length);
+      if (conflictingBookings.length > 0) {
+        console.log('Conflicting bookings:', conflictingBookings.map(b => ({
+          id: b._id,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          reference: b.bookingReference
+        })));
+      }
 
       if (conflictingBookings.length > 0) {
+        console.log('❌ Step 6: Booking conflicts found');
         return res.status(409).json({
           success: false,
           message: 'Space is not available for the updated time slot',
@@ -724,21 +832,27 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
           }))
         });
       }
+      console.log('✅ Step 6: No conflicts found');
+    } else {
+      console.log('✅ Step 5: No time changes, skipping time validation');
     }
 
+    console.log('🔍 Step 7: Preparing update data');
     const updateData = {
       ...value,
       updatedBy: userId
     };
 
-    console.log('Updating booking with data:', JSON.stringify(updateData, null, 2));
+    console.log('Final update data:', JSON.stringify(updateData, null, 2));
 
+    console.log('🔍 Step 8: Executing database update');
     const updatedBooking = await Booking.findOneAndUpdate(
       { _id: id, organizationId },
-      updateData,
+      { $set: updateData },
       { 
         new: true, 
-        runValidators: true 
+        runValidators: true,
+        upsert: false
       }
     )
     .populate('spaceId', 'name type capacity location')
@@ -746,7 +860,23 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
     .populate('createdBy', 'firstName lastName')
     .populate('updatedBy', 'firstName lastName');
 
-    console.log('Booking updated successfully');
+    if (!updatedBooking) {
+      console.log('❌ Step 8: Database update failed - booking not found after update');
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found after update attempt'
+      });
+    }
+
+    console.log('✅ Step 8: Database update successful');
+    console.log('Updated booking result:', {
+      id: updatedBooking._id,
+      startTime: updatedBooking.startTime,
+      endTime: updatedBooking.endTime,
+      status: updatedBooking.status,
+      attendeeCount: updatedBooking.attendeeCount
+    });
+    console.log('=== UPDATE BOOKING DEBUG END ===');
 
     res.json({
       success: true,
@@ -755,15 +885,34 @@ export const updateBooking = async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error in updateBooking:', error);
+    console.log('❌ CRITICAL ERROR in updateBooking');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error object:', error);
+    
+    // MongoDB validation error
+    if (error.name === 'ValidationError') {
+      console.error('MongoDB validation error:', error.errors);
+      return res.status(400).json({
+        success: false,
+        message: 'Database validation failed',
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
     
     res.status(500).json({
       success: false,
       message: 'Failed to update booking',
-      error: error.message
+      error: error.message,
+      errorType: error.name
     });
   }
 };
+
 
 // Cancel/Delete a booking
 export const deleteBooking = async (req: AuthRequest, res: Response) => {

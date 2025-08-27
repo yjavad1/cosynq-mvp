@@ -22,6 +22,7 @@ export const useBookings = (params?: {
   search?: string;
   spaceId?: string;
   contactId?: string;
+  locationId?: string; // New parameter for location filtering
   status?: BookingStatus;
   paymentStatus?: PaymentStatus;
   startDate?: string;
@@ -29,12 +30,46 @@ export const useBookings = (params?: {
   checkedIn?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  showCancelled?: boolean; // New parameter to control cancelled booking visibility
 }) => {
+  // Prepare parameters with default exclusion of cancelled bookings
+  const queryParams = useMemo(() => {
+    const { showCancelled = false, ...otherParams } = params || {};
+    
+    // If not showing cancelled and no specific status is requested, exclude cancelled
+    if (!showCancelled && !otherParams.status) {
+      return {
+        ...otherParams,
+        // Use a custom parameter that the backend doesn't support yet, 
+        // but we'll filter on the frontend as a fallback
+        excludeStatus: 'Cancelled' as any
+      };
+    }
+    
+    return otherParams;
+  }, [params]);
+
   return useQuery({
-    queryKey: [BOOKINGS_QUERY_KEY, params],
+    queryKey: [BOOKINGS_QUERY_KEY, queryParams],
     queryFn: async () => {
-      const response = await bookingApiService.getBookings(params);
-      return response.data.data;
+      const response = await bookingApiService.getBookings(queryParams);
+      const data = response.data.data;
+      
+      // Client-side filter as fallback to ensure cancelled bookings are excluded
+      if (!params?.showCancelled && !params?.status) {
+        const filteredBookings = data.bookings?.filter((booking: BookingData) => 
+          booking.status !== 'Cancelled'
+        ) || [];
+        
+        console.log(`📋 Filtered ${data.bookings?.length || 0} to ${filteredBookings.length} bookings (excluded cancelled)`);
+        
+        return {
+          ...data,
+          bookings: filteredBookings
+        };
+      }
+      
+      return data;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes - bookings need fresher data
     refetchOnWindowFocus: true, // Important for booking conflicts

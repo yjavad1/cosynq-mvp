@@ -12,6 +12,7 @@ import { requireOnboarding } from '../middleware/onboarding';
 
 const router = express.Router();
 
+
 // Apply authentication middleware to all booking routes
 router.use(authenticate);
 
